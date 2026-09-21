@@ -1,0 +1,97 @@
+# ============================================================
+# STM32CubeIDE / Eclipse workspace
+# ============================================================
+# Локальні дані воркспейсу (лог, індекси, плагіни, стан IDE) — не є частиною проєкту
+.metadata/
+RemoteSystemsTempFiles/
+*.launch
+
+# Build artifacts (Debug/Release каталоги CDT)
+**/Debug/
+**/Release/
+**/build/
+*.o
+*.obj
+*.d
+*.su
+*.elf
+*.bin
+*.hex
+*.map
+*.list
+*.lst
+*.axf
+*.a
+*.lib
+*.dfu
+*.srec
+
+# STM32CubeMX / CubeIDE тимчасові файли
+*.ioc.bak
+*.ioc.orig
+.mxproject.bak
+*.tmp
+*.old
+
+# ST-Link / debugger / trace
+*.cfg.bak
+*.log
+*.trace
+*.stackdump
+
+# ============================================================
+# CAD (SolidWorks та ін.)
+# ============================================================
+# Тимчасові/лок-файли SolidWorks
+~$*
+*.~*
+*.swj
+*.swl
+*.swf.bak
+*.bak
+*.SLDDRW.bak
+*.SLDPRT.bak
+*.SLDASM.bak
+# Кеші слайсерів (PrusaSlicer / Cura / Bambu)
+*.gcode
+*.3mf.bak
+
+# ============================================================
+# ОС / редактори
+# ============================================================
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+._*
+
+# Linux
+*~
+.directory
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/c_cpp_properties.json
+
+# JetBrains (CLion)
+.idea/
+cmake-build-*/
+
+# Claude Code (локальні налаштування)
+.claude/settings.local.json
+
+# ============================================================
+# Інше
+# ============================================================
+*.zip
+*.7z
+*.rar
