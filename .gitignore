@@ -55,6 +55,7 @@ RemoteSystemsTempFiles/
 # Кеші слайсерів (PrusaSlicer / Cura / Bambu)
 *.gcode
 *.3mf.bak
+*.3mf
 
 # ============================================================
 # ОС / редактори
