@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "servo.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,7 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define LED_BLINK_MS          500U
+#define SERVO_MODE_DEMO_MS    10000U  /* demo: switch sweep mode every 10 s */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -87,7 +88,10 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
+  Servo_Init(SERVO_MODE_180);
 
+  uint32_t led_tick = HAL_GetTick();
+  uint32_t mode_tick = HAL_GetTick();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -97,8 +101,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
-    HAL_Delay(500);
+    Servo_Update();
+
+    if ((HAL_GetTick() - mode_tick) >= SERVO_MODE_DEMO_MS)
+    {
+      mode_tick = HAL_GetTick();
+      Servo_NextMode();
+    }
+
+    if ((HAL_GetTick() - led_tick) >= LED_BLINK_MS)
+    {
+      led_tick = HAL_GetTick();
+      HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
+    }
   }
   /* USER CODE END 3 */
 }
