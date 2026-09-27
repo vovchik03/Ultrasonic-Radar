@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "servo.h"
+#include "ultrasonic.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,6 +34,7 @@
 /* USER CODE BEGIN PD */
 #define LED_BLINK_MS          500U
 #define SERVO_MODE_DEMO_MS    10000U  /* demo: switch sweep mode every 10 s */
+#define RADAR_NEAR_MM         200U    /* demo: LED stays on if an object is closer */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -43,7 +45,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-
+/* Last measurement, watch it in the debugger (Live Watch) */
+volatile uint16_t radar_distance_mm;
+volatile uint8_t  radar_status;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,6 +93,7 @@ int main(void)
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
   Servo_Init(SERVO_MODE_180);
+  Ultrasonic_Init();
 
   uint32_t led_tick = HAL_GetTick();
   uint32_t mode_tick = HAL_GetTick();
@@ -109,7 +114,17 @@ int main(void)
       Servo_NextMode();
     }
 
-    if ((HAL_GetTick() - led_tick) >= LED_BLINK_MS)
+    if (Ultrasonic_Update())
+    {
+      radar_distance_mm = Ultrasonic_GetDistanceMm();
+      radar_status = Ultrasonic_GetStatus();
+    }
+
+    if ((radar_status == ULTRASONIC_OK) && (radar_distance_mm < RADAR_NEAR_MM))
+    {
+      HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);  /* LED on (active low) */
+    }
+    else if ((HAL_GetTick() - led_tick) >= LED_BLINK_MS)
     {
       led_tick = HAL_GetTick();
       HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
