@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Radar: Flash & Debug (ST-Link)",
+            "type": "stlinkgdbtarget",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/STM32F103C8Tx_Radar",
+            "preLaunchTask": "Build (Debug)",
+            "preBuild": "",
+            "deviceName": "STM32F103C8Tx",
+            "serverInterface": "SWD",
+            "runEntry": "main",
+            "imagesAndSymbols": [
+                {
+                    "imageFileName": "${workspaceFolder}/STM32F103C8Tx_Radar/build/Debug/STM32F103C8Tx_Radar.elf",
+                    "symbolFileName": "${workspaceFolder}/STM32F103C8Tx_Radar/build/Debug/STM32F103C8Tx_Radar.elf"
+                }
+            ]
+        }
+    ]
+}
