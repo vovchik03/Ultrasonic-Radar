@@ -23,6 +23,9 @@
 /* USER CODE BEGIN Includes */
 #include "servo.h"
 #include "ultrasonic.h"
+#include "scan.h"
+#include "uart.h"
+#include "cmd.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -33,8 +36,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define LED_BLINK_MS          500U
-#define SERVO_MODE_DEMO_MS    10000U  /* demo: switch sweep mode every 10 s */
 #define RADAR_NEAR_MM         200U    /* demo: LED stays on if an object is closer */
+#define CMD_UART_BAUD         115200U
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,6 +49,7 @@
 
 /* USER CODE BEGIN PV */
 /* Last measurement, watch it in the debugger (Live Watch) */
+volatile uint8_t  radar_angle;
 volatile uint16_t radar_distance_mm;
 volatile uint8_t  radar_status;
 /* USER CODE END PV */
@@ -94,9 +98,10 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Servo_Init(SERVO_MODE_180);
   Ultrasonic_Init();
+  Scan_Init();                /* starts sweeping the default sector */
+  Uart_Init(CMD_UART_BAUD);
 
   uint32_t led_tick = HAL_GetTick();
-  uint32_t mode_tick = HAL_GetTick();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -106,16 +111,15 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    Servo_Update();
-
-    if ((HAL_GetTick() - mode_tick) >= SERVO_MODE_DEMO_MS)
+    const char *line = Uart_ReadLine();
+    if (line != NULL)
     {
-      mode_tick = HAL_GetTick();
-      Servo_NextMode();
+      Cmd_Process(line, Uart_Write);
     }
 
-    if (Ultrasonic_Update())
+    if (Scan_Update())
     {
+      radar_angle = Scan_GetLastAngle();
       radar_distance_mm = Ultrasonic_GetDistanceMm();
       radar_status = Ultrasonic_GetStatus();
     }

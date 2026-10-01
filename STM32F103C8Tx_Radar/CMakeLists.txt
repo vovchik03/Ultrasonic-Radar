@@ -47,6 +47,9 @@ target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
     Core/Src/servo.c
     Core/Src/ultrasonic.c
+    Core/Src/scan.c
+    Core/Src/uart.c
+    Core/Src/cmd.c
 )
 
 # Add include paths

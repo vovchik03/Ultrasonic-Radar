@@ -4,8 +4,9 @@
   * @brief          : HC-SR04 ultrasonic sensor driver.
   *                   TRIG -> PB7 (GPIO output)
   *                   ECHO -> PB6 (TIM4 CH1/CH2 input capture, 5V tolerant pin)
-  *                   Measurements run automatically every ULTRASONIC_PERIOD_MS,
-  *                   the echo pulse is timed by hardware with 1 us resolution.
+  *                   Auto mode (default): a ping every ULTRASONIC_PERIOD_MS.
+  *                   Single-shot mode: a ping only after Ultrasonic_Trigger().
+  *                   The echo pulse is timed by hardware with 1 us resolution.
   ******************************************************************************
   */
 #ifndef __ULTRASONIC_H
@@ -42,9 +43,19 @@ typedef enum
 void              Ultrasonic_Init(void);
 
 /* Call from the main loop as often as possible (non-blocking).
-   Starts a new ping every ULTRASONIC_PERIOD_MS and collects the result.
+   Starts pings (see the modes above) and collects the result.
    Returns 1 when a new result is available, 0 otherwise. */
 uint8_t           Ultrasonic_Update(void);
+
+/* 1 = ping every ULTRASONIC_PERIOD_MS (default), 0 = single-shot mode */
+void              Ultrasonic_SetAutoMode(uint8_t enable);
+
+/* Single-shot mode: request one ping. It is sent from Ultrasonic_Update()
+   as soon as ULTRASONIC_PERIOD_MS has passed since the previous ping. */
+void              Ultrasonic_Trigger(void);
+
+/* 1 while a ping is requested or its echo is awaited */
+uint8_t           Ultrasonic_IsBusy(void);
 
 Ultrasonic_Status Ultrasonic_GetStatus(void);
 uint16_t          Ultrasonic_GetDistanceMm(void);  /* 0 if status != OK */

@@ -31,6 +31,8 @@ static Ultrasonic_Status us_status;
 static uint16_t          us_distance_mm;
 static uint16_t          us_echo_us;
 static uint32_t          us_ping_tick;
+static uint8_t           us_auto;
+static uint8_t           us_trigger_pending;
 
 static void Ultrasonic_HwInit(void)
 {
@@ -113,6 +115,8 @@ void Ultrasonic_Init(void)
   us_status = ULTRASONIC_NOT_READY;
   us_distance_mm = 0;
   us_echo_us = 0;
+  us_auto = 1;
+  us_trigger_pending = 0;
   Ultrasonic_HwInit();
   /* First ping is sent on the first Ultrasonic_Update() call */
   us_ping_tick = HAL_GetTick() - ULTRASONIC_PERIOD_MS;
@@ -124,8 +128,9 @@ uint8_t Ultrasonic_Update(void)
 
   if (us_state == US_STATE_IDLE)
   {
-    if ((now - us_ping_tick) >= ULTRASONIC_PERIOD_MS)
+    if ((us_auto || us_trigger_pending) && ((now - us_ping_tick) >= ULTRASONIC_PERIOD_MS))
     {
+      us_trigger_pending = 0;
       Ultrasonic_StartPing();
     }
     return 0;
@@ -157,6 +162,21 @@ uint8_t Ultrasonic_Update(void)
   }
 
   return 0;
+}
+
+void Ultrasonic_SetAutoMode(uint8_t enable)
+{
+  us_auto = (enable != 0U) ? 1U : 0U;
+}
+
+void Ultrasonic_Trigger(void)
+{
+  us_trigger_pending = 1;
+}
+
+uint8_t Ultrasonic_IsBusy(void)
+{
+  return ((us_state != US_STATE_IDLE) || us_trigger_pending) ? 1U : 0U;
 }
 
 Ultrasonic_Status Ultrasonic_GetStatus(void)

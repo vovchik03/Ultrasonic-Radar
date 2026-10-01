@@ -70,6 +70,8 @@ void Error_Handler(void);
  *  PA0   SERVO_PWM          TIM2_CH1     50 Hz PWM, servo signal wire
  *  PB6   US_ECHO            TIM4_CH1     HC-SR04 ECHO, 5 V tolerant (FT) pin
  *  PB7   US_TRIG            GPIO out     HC-SR04 TRIG, >= 10 us high pulse
+ *  PA9   UART_TX            USART1_TX    commands link -> PC (adapter RX)
+ *  PA10  UART_RX            USART1_RX    commands link <- PC (adapter TX), FT pin
  *
  *  Reserved, do not use as GPIO:
  *  PA13  SWDIO              SYS          ST-Link debug
@@ -94,6 +96,12 @@ void Error_Handler(void);
 #define US_TRIG_GPIO_Port       GPIOB
 #define US_ECHO_Pin             GPIO_PIN_6    /* PB6, TIM4_CH1 input capture, pull-down */
 #define US_ECHO_GPIO_Port       GPIOB
+
+/* UART command link to the PC (uart.c), 115200 8N1 */
+#define UART_TX_Pin             GPIO_PIN_9    /* PA9, USART1_TX, alternate function push-pull */
+#define UART_TX_GPIO_Port       GPIOA
+#define UART_RX_Pin             GPIO_PIN_10   /* PA10, USART1_RX, input with pull-up */
+#define UART_RX_GPIO_Port       GPIOA
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
