@@ -16,10 +16,7 @@
 #include "ultrasonic.h"
 #include "main.h"
 
-#define US_TRIG_PORT         GPIOB
-#define US_TRIG_PIN          GPIO_PIN_7
-#define US_ECHO_PORT         GPIOB
-#define US_ECHO_PIN          GPIO_PIN_6     /* TIM4_CH1, 5V tolerant */
+/* TRIG / ECHO pins are defined in main.h (US_TRIG_*, US_ECHO_*) */
 
 #define US_TRIG_PULSE_US     12U            /* datasheet: >= 10 us */
 
@@ -43,18 +40,18 @@ static void Ultrasonic_HwInit(void)
   __HAL_RCC_TIM4_CLK_ENABLE();
 
   /* PB7 -> TRIG, push-pull output, idle low */
-  HAL_GPIO_WritePin(US_TRIG_PORT, US_TRIG_PIN, GPIO_PIN_RESET);
-  GPIO_InitStruct.Pin = US_TRIG_PIN;
+  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
+  GPIO_InitStruct.Pin = US_TRIG_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(US_TRIG_PORT, &GPIO_InitStruct);
+  HAL_GPIO_Init(US_TRIG_GPIO_Port, &GPIO_InitStruct);
 
   /* PB6 -> ECHO, input (pull-down keeps it low if the sensor is unplugged) */
-  GPIO_InitStruct.Pin = US_ECHO_PIN;
+  GPIO_InitStruct.Pin = US_ECHO_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  HAL_GPIO_Init(US_ECHO_PORT, &GPIO_InitStruct);
+  HAL_GPIO_Init(US_ECHO_GPIO_Port, &GPIO_InitStruct);
 
   /* APB1 timer clock is doubled when the APB1 prescaler is not 1 */
   uint32_t tim_clk = HAL_RCC_GetPCLK1Freq();
@@ -83,12 +80,12 @@ static void Ultrasonic_StartPing(void)
   /* Drop captures left over from the previous cycle */
   TIM4->SR = 0;
 
-  HAL_GPIO_WritePin(US_TRIG_PORT, US_TRIG_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_SET);
   uint16_t start = (uint16_t)TIM4->CNT;
   while ((uint16_t)((uint16_t)TIM4->CNT - start) < US_TRIG_PULSE_US)
   {
   }
-  HAL_GPIO_WritePin(US_TRIG_PORT, US_TRIG_PIN, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(US_TRIG_GPIO_Port, US_TRIG_Pin, GPIO_PIN_RESET);
 
   us_ping_tick = HAL_GetTick();
   us_state = US_STATE_WAIT_ECHO;

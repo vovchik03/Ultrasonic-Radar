@@ -47,14 +47,14 @@ static void Servo_PwmInit(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
-  __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();   /* SERVO_PWM_GPIO_Port */
   __HAL_RCC_TIM2_CLK_ENABLE();
 
   /* PA0 -> TIM2_CH1, alternate function push-pull */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  GPIO_InitStruct.Pin = SERVO_PWM_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(SERVO_PWM_GPIO_Port, &GPIO_InitStruct);
 
   /* APB1 timer clock is doubled when the APB1 prescaler is not 1 */
   uint32_t tim_clk = HAL_RCC_GetPCLK1Freq();
