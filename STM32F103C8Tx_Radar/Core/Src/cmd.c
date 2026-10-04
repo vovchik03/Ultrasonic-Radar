@@ -11,6 +11,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+static uint8_t cmd_stream;    /* 1 = STREAM ON */
+
 static const char *Cmd_SkipSpaces(const char *p)
 {
   while ((*p == ' ') || (*p == '\t'))
@@ -157,6 +159,54 @@ static void Cmd_Get(Cmd_WriteFn write)
   write("\r\n");
 }
 
+static void Cmd_Stream(const char *args, Cmd_WriteFn write)
+{
+  const char *p = Cmd_SkipSpaces(args);
+  const char *end;
+  uint8_t     enable;
+
+  if ((end = Cmd_MatchWord(p, "ON")) != NULL)
+  {
+    enable = 1;
+  }
+  else if ((end = Cmd_MatchWord(p, "OFF")) != NULL)
+  {
+    enable = 0;
+  }
+  else
+  {
+    write("ERR ARGS\r\n");
+    return;
+  }
+
+  if (*Cmd_SkipSpaces(end) != '\0')
+  {
+    write("ERR ARGS\r\n");
+    return;
+  }
+
+  cmd_stream = enable;
+  write(enable ? "OK STREAM ON\r\n" : "OK STREAM OFF\r\n");
+}
+
+void Cmd_ReportPoint(uint8_t angle, uint16_t distance_mm, Cmd_WriteFn write)
+{
+  if (!cmd_stream)
+  {
+    return;
+  }
+
+  /* Longest line: "P 180 65535\r\n" */
+  char  buf[16] = "P ";
+  char *end = Cmd_AppendUint(&buf[2], angle);
+  *end++ = ' ';
+  end = Cmd_AppendUint(end, distance_mm);
+  *end++ = '\r';
+  *end++ = '\n';
+  *end = '\0';
+  write(buf);
+}
+
 void Cmd_Process(const char *line, Cmd_WriteFn write)
 {
   const char *p = Cmd_SkipSpaces(line);
@@ -174,6 +224,10 @@ void Cmd_Process(const char *line, Cmd_WriteFn write)
   else if ((args = Cmd_MatchWord(p, "GET")) != NULL)
   {
     Cmd_Get(write);
+  }
+  else if ((args = Cmd_MatchWord(p, "STREAM")) != NULL)
+  {
+    Cmd_Stream(args, write);
   }
   else
   {

@@ -122,6 +122,7 @@ int main(void)
       radar_angle = Scan_GetLastAngle();
       radar_distance_mm = Ultrasonic_GetDistanceMm();
       radar_status = Ultrasonic_GetStatus();
+      Cmd_ReportPoint(radar_angle, Scan_GetDistanceMm(radar_angle), Uart_Write);
     }
 
     if ((radar_status == ULTRASONIC_OK) && (radar_distance_mm < RADAR_NEAR_MM))

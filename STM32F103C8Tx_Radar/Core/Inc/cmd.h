@@ -17,6 +17,12 @@
   *    GET                distances of the current sector, "angle:mm" pairs,
   *                       0 = no echo / not measured yet
   *                       -> DATA 40:523 41:518 42:0 ... 70:1210
+  *    STREAM ON|OFF      send every new point as soon as it is measured
+  *                       (off after power-up)
+  *                       -> OK STREAM ON
+  *                       then one line per point, "P <angle> <mm>",
+  *                       0 = no echo
+  *                       -> P 45 523
   *
   *  Errors: ERR UNKNOWN, ERR ARGS (bad format), ERR RANGE (angle > 180)
   ******************************************************************************
@@ -28,10 +34,16 @@
 extern "C" {
 #endif
 
+#include <stdint.h>
+
 typedef void (*Cmd_WriteFn)(const char *s);
 
 /* Execute one command line and send the reply through write() */
 void Cmd_Process(const char *line, Cmd_WriteFn write);
+
+/* Call for every newly measured point. Sends "P <angle> <mm>"
+   through write() if streaming is on, does nothing otherwise. */
+void Cmd_ReportPoint(uint8_t angle, uint16_t distance_mm, Cmd_WriteFn write);
 
 #ifdef __cplusplus
 }
