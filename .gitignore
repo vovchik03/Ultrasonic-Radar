@@ -96,3 +96,10 @@ cmake-build-*/
 *.zip
 *.7z
 *.rar
+
+# Visual Studio / WPF
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
