@@ -5,8 +5,77 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Radar"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="Radar TEST" Height="450" Width="500">
     <Grid>
-        
+        <Grid.RowDefinitions>
+            <RowDefinition Height="3*" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+
+        <!-- Top part (3/4) -->
+        <Border Grid.Row="0" >
+            <!-- Replies from the radar (see cmd.h in the firmware) -->
+            <Grid VerticalAlignment="Bottom" Margin="10">
+                <Grid.Resources>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="VerticalAlignment" Value="Center" />
+                        <Setter Property="Margin" Value="0,0,8,0" />
+                    </Style>
+                    <Style TargetType="TextBox">
+                        <Setter Property="IsReadOnly" Value="True" />
+                        <Setter Property="Height" Value="24" />
+                        <Setter Property="Margin" Value="0,2" />
+                        <Setter Property="VerticalContentAlignment" Value="Center" />
+                    </Style>
+                </Grid.Resources>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- OK STREAM ON / OK STREAM OFF -->
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="STREAM" />
+                <TextBox Grid.Row="0" Grid.Column="1" x:Name="StreamBox" Width="60" HorizontalAlignment="Left" Text="OFF" />
+
+                <!-- P <angle> <mm> -->
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="P" />
+                <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal">
+                    <TextBox x:Name="PointAngleBox" Width="60" />
+                    <TextBlock Text="°" Margin="4,0,12,0" />
+                    <TextBox x:Name="PointDistanceBox" Width="60" />
+                    <TextBlock Text="mm" Margin="4,0,0,0" />
+                </StackPanel>
+
+                <!-- DATA angle:mm angle:mm ... -->
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="DATA" />
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="DataBox" HorizontalScrollBarVisibility="Auto" Height="40" />
+
+                <!-- ERR UNKNOWN / ERR ARGS / ERR RANGE -->
+                <TextBlock Grid.Row="3" Grid.Column="0" Text="ERR" />
+                <TextBox Grid.Row="3" Grid.Column="1" x:Name="ErrorBox" Foreground="Firebrick" />
+            </Grid>
+        </Border>
+
+        <!-- Bottom part (1/4) -->
+        <Border Grid.Row="1" BorderBrush="#DDDDDD" BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <TextBlock Text="Port" VerticalAlignment="Center" Margin="0,0,6,0" />
+                <ComboBox x:Name="PortBox" Width="80" Height="24" Margin="0,0,16,0"
+                          DropDownOpened="PortBox_DropDownOpened" SelectionChanged="PortBox_SelectionChanged" />
+                <Button x:Name="TestButton" Content="Test Button" Width="75" Height="40" Cursor="Hand" IsCancel="True" Click="TestButton_Click">
+                    <Button.Resources>
+                        <Style TargetType="Border">
+                            <Setter Property="CornerRadius" Value="10" />
+                        </Style>
+                    </Button.Resources>
+                </Button>
+            </StackPanel>
+        </Border>
     </Grid>
 </Window>
