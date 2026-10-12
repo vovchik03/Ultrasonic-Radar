@@ -25,9 +25,6 @@ namespace Radar
         // USART1 of the radar, 115200 8N1 (see setup.md)
         private const int BaudRate = 115200;
 
-        // One pass over 40..70 takes ~2 s (~60 ms per degree), GET is sent after it
-        private const int ScanPassMs = 3000;
-
         private SerialPort port;
         private readonly StringBuilder rxLine = new StringBuilder();
 
@@ -79,7 +76,7 @@ namespace Radar
             string name = PortBox.SelectedItem as string;
             if (name == null)
             {
-                ErrorBox.Text = "no COM port selected";
+                ShowStatus("no COM port selected", true);
                 return false;
             }
 
@@ -97,7 +94,7 @@ namespace Radar
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
             {
-                ErrorBox.Text = ex.Message;
+                ShowStatus(ex.Message, true);
                 port = null;
                 return false;
             }
@@ -118,32 +115,24 @@ namespace Radar
             port.WriteLine(command);
         }
 
-        private async void TestButton_Click(object sender, RoutedEventArgs e)
+        private void TestButton_Click(object sender, RoutedEventArgs e)
         {
             if (!OpenPort())
             {
                 return;
             }
 
-            ErrorBox.Text = "";
-            DataBox.Text = "";
-            TestButton.IsEnabled = false;
+            ShowStatus("", false);
 
             try
             {
                 Send("SCAN 40 70");
-                Send("STREAM ON");   // live points go to the P field
-                await Task.Delay(ScanPassMs);
-                Send("GET");         // the whole sector goes to the DATA field
+                Send("STREAM ON");   // then one "P <angle> <mm>" line per point
             }
             catch (Exception ex) when (ex is IOException || ex is InvalidOperationException || ex is TimeoutException)
             {
-                ErrorBox.Text = ex.Message;
+                ShowStatus(ex.Message, true);
                 ClosePort();
-            }
-            finally
-            {
-                TestButton.IsEnabled = true;
             }
         }
 
@@ -177,33 +166,19 @@ namespace Radar
         }
 
         /// <summary>
-        /// Shows one reply line from the radar in the matching field (format: cmd.h).
+        /// Shows one reply line from the radar (format: cmd.h).
+        /// Until the beam is drawn on the radar screen, the last line is shown as text.
         /// </summary>
-        public void ShowReply(string line)
+        private void ShowReply(string line)
         {
             line = line.Trim();
+            ShowStatus(line, line.StartsWith("ERR"));
+        }
 
-            if (line.StartsWith("OK STREAM "))
-            {
-                StreamBox.Text = line.Substring("OK STREAM ".Length);
-            }
-            else if (line.StartsWith("P "))
-            {
-                string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 3)
-                {
-                    PointAngleBox.Text = parts[1];
-                    PointDistanceBox.Text = parts[2];
-                }
-            }
-            else if (line.StartsWith("DATA"))
-            {
-                DataBox.Text = line.Substring("DATA".Length).Trim();
-            }
-            else if (line.StartsWith("ERR"))
-            {
-                ErrorBox.Text = line.Substring("ERR".Length).Trim();
-            }
+        private void ShowStatus(string text, bool isError)
+        {
+            StatusText.Text = text;
+            StatusText.Foreground = isError ? Brushes.Firebrick : Brushes.Gray;
         }
     }
 }

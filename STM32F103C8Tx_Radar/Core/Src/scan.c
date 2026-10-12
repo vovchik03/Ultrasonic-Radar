@@ -10,8 +10,8 @@
   *    MEASURE : wait for the echo result, store it, go to MOVE
   *
   *  The ultrasonic driver runs in single-shot mode, so a result always
-  *  belongs to the ping requested at the current angle. One step takes
-  *  ~60 ms (sensor ping period), a 0..180 sweep at 1 deg takes ~11 s.
+  *  belongs to the ping requested at the current angle. One 9 deg step
+  *  takes 64..108 ms (servo settle + echo), a 0..180 sweep takes 1.3..2.2 s.
   ******************************************************************************
   */
 #include "scan.h"
@@ -51,29 +51,38 @@ static void Scan_MoveTo(uint8_t angle)
   scan_state = SCAN_STATE_MOVE;
 }
 
+/* Grid point above the angle, the last step is shortened to land on "to" */
+static uint8_t Scan_GridUp(uint8_t angle)
+{
+  uint16_t next = (uint16_t)angle + SCAN_STEP_DEG;
+  return (next > scan_to) ? scan_to : (uint8_t)next;
+}
+
+/* Grid point below the angle (from, from + STEP, ...), angle > from */
+static uint8_t Scan_GridDown(uint8_t angle)
+{
+  return (uint8_t)(scan_from + ((angle - scan_from - 1U) / SCAN_STEP_DEG) * SCAN_STEP_DEG);
+}
+
 static uint8_t Scan_NextAngle(void)
 {
-  int16_t next = (int16_t)scan_angle + scan_dir * (int16_t)SCAN_STEP_DEG;
+  /* Single-angle sector: keep measuring the same angle */
+  if (scan_from == scan_to)
+  {
+    return scan_from;
+  }
 
   /* Bounce off the sector edges */
-  if (next > (int16_t)scan_to)
+  if (scan_angle >= scan_to)
   {
     scan_dir = -1;
-    next = (int16_t)scan_angle - (int16_t)SCAN_STEP_DEG;
   }
-  else if (next < (int16_t)scan_from)
+  else if (scan_angle <= scan_from)
   {
     scan_dir = 1;
-    next = (int16_t)scan_angle + (int16_t)SCAN_STEP_DEG;
   }
 
-  /* Sector narrower than one step: keep measuring the same angle */
-  if ((next < (int16_t)scan_from) || (next > (int16_t)scan_to))
-  {
-    next = scan_angle;
-  }
-
-  return (uint8_t)next;
+  return (scan_dir > 0) ? Scan_GridUp(scan_angle) : Scan_GridDown(scan_angle);
 }
 
 void Scan_Init(void)

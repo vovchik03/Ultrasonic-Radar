@@ -140,10 +140,13 @@ static void Cmd_Scan(const char *args, Cmd_WriteFn write)
 static void Cmd_Get(Cmd_WriteFn write)
 {
   /* Sent point by point, so no big buffer is needed:
-     a full 0..180 sector is ~1.6 KB, ~140 ms at 115200 baud */
+     a full 0..180 sector at 9 deg is ~200 bytes, ~17 ms at 115200 baud */
   write("DATA");
 
-  for (uint16_t angle = Scan_GetFrom(); angle <= Scan_GetTo(); angle += SCAN_STEP_DEG)
+  /* Same grid as the scanner: from, from + STEP, ..., to */
+  uint8_t angle = Scan_GetFrom();
+  uint8_t to = Scan_GetTo();
+  for (;;)
   {
     char  buf[12];
     char *end = buf;
@@ -151,9 +154,15 @@ static void Cmd_Get(Cmd_WriteFn write)
     *end++ = ' ';
     end = Cmd_AppendUint(end, angle);
     *end++ = ':';
-    end = Cmd_AppendUint(end, Scan_GetDistanceMm((uint8_t)angle));
+    end = Cmd_AppendUint(end, Scan_GetDistanceMm(angle));
     *end = '\0';
     write(buf);
+
+    if (angle >= to)
+    {
+      break;
+    }
+    angle = ((uint16_t)angle + SCAN_STEP_DEG > to) ? to : (uint8_t)(angle + SCAN_STEP_DEG);
   }
 
   write("\r\n");

@@ -19,8 +19,10 @@ extern "C" {
 
 #define SCAN_ANGLE_MAX           180U
 
-/* Angle between two neighbouring measurements */
-#define SCAN_STEP_DEG            1U
+/* Angle between two neighbouring measurements. HC-SR04 beam is ~15 deg wide,
+   so 9 deg still overlaps neighbouring beams. Points lie on the grid
+   from, from + STEP, ... plus the sector edge "to" itself. */
+#define SCAN_STEP_DEG            9U
 
 /* Servo settle time before a ping: BASE + PER_DEG * travelled degrees.
    BASE covers the 20 ms PWM period (new pulse width is applied on the next
