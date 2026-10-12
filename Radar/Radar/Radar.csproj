@@ -62,6 +62,7 @@
     <Compile Include="Controls\RadarGeometry.cs" />
     <Compile Include="Controls\RadarTheme.cs" />
     <Compile Include="Controls\RadarView.cs" />
+    <Compile Include="Device\RadarSimulator.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>

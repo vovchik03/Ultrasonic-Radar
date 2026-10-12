@@ -23,13 +23,28 @@
                     <TextBlock Text="Port" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <ComboBox x:Name="PortBox" Width="80" Height="24" Margin="0,0,16,0"
                               DropDownOpened="PortBox_DropDownOpened" SelectionChanged="PortBox_SelectionChanged" />
-                    <Button x:Name="TestButton" Content="Test Button" Width="75" Height="40" Cursor="Hand" IsCancel="True" Click="TestButton_Click">
+
+                    <!-- Scan sector for "SCAN <from> <to>", 0..180° -->
+                    <TextBlock Text="From" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="FromBox" Text="0" Width="40" Height="24" MaxLength="3" Margin="0,0,10,0"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                             PreviewTextInput="AngleBox_PreviewTextInput" />
+                    <TextBlock Text="To" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <TextBox x:Name="ToBox" Text="180" Width="40" Height="24" MaxLength="3" Margin="0,0,16,0"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                             PreviewTextInput="AngleBox_PreviewTextInput" />
+
+                    <Button x:Name="StartButton" Content="Start" Width="75" Height="40" Cursor="Hand" IsDefault="True" Click="StartButton_Click">
                         <Button.Resources>
                             <Style TargetType="Border">
                                 <Setter Property="CornerRadius" Value="10" />
                             </Style>
                         </Button.Resources>
                     </Button>
+
+                    <!-- Simulated radar instead of the COM port -->
+                    <CheckBox x:Name="DemoBox" Content="Demo" VerticalAlignment="Center" Margin="16,0,0,0"
+                              Checked="DemoBox_Checked" Unchecked="DemoBox_Unchecked" />
                 </StackPanel>
 
                 <!-- Last reply from the radar or the port error -->

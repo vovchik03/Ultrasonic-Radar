@@ -14,6 +14,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using Radar.Device;
 
 namespace Radar
 {
@@ -25,14 +26,48 @@ namespace Radar
         // USART1 of the radar, 115200 8N1 (see setup.md)
         private const int BaudRate = 115200;
 
+        // SCAN_ANGLE_MAX in the firmware
+        private const int ScanAngleMax = 180;
+
         private SerialPort port;
         private readonly StringBuilder rxLine = new StringBuilder();
+        private readonly RadarSimulator simulator = new RadarSimulator();
 
         public MainWindow()
         {
             InitializeComponent();
             RefreshPorts();
-            Closed += (s, e) => ClosePort();
+            simulator.LineReceived += ShowReply;
+            Closed += (s, e) =>
+            {
+                ClosePort();
+                simulator.Stop();
+            };
+        }
+
+        private bool IsDemo => DemoBox.IsChecked == true;
+
+        private void DemoBox_Checked(object sender, RoutedEventArgs e)
+        {
+            ClosePort();
+            ResetRadarScreen();
+            simulator.Start();
+            ShowStatus("demo: simulated radar, press Start", false);
+        }
+
+        private void DemoBox_Unchecked(object sender, RoutedEventArgs e)
+        {
+            simulator.Stop();
+            ResetRadarScreen();
+            ShowStatus("", false);
+        }
+
+        /// <summary>Back to what the firmware has after power-up: sector 0..180, nothing measured.</summary>
+        private void ResetRadarScreen()
+        {
+            RadarScreen.SectorFrom = 0;
+            RadarScreen.SectorTo = ScanAngleMax;
+            RadarScreen.BeamAngle = double.NaN;
         }
 
         private void RefreshPorts()
@@ -112,12 +147,37 @@ namespace Radar
 
         private void Send(string command)
         {
-            port.WriteLine(command);
+            if (IsDemo)
+            {
+                simulator.Send(command);
+            }
+            else
+            {
+                port.WriteLine(command);
+            }
         }
 
-        private void TestButton_Click(object sender, RoutedEventArgs e)
+        private void AngleBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
-            if (!OpenPort())
+            // Digits only, the range is checked on Start
+            e.Handled = !e.Text.All(c => c >= '0' && c <= '9');
+        }
+
+        private static bool TryReadAngle(TextBox box, out int angle)
+        {
+            return int.TryParse(box.Text, out angle) && angle >= 0 && angle <= ScanAngleMax;
+        }
+
+        private void StartButton_Click(object sender, RoutedEventArgs e)
+        {
+            // The firmware accepts the angles in any order
+            if (!TryReadAngle(FromBox, out int from) || !TryReadAngle(ToBox, out int to))
+            {
+                ShowStatus($"angles must be 0..{ScanAngleMax}", true);
+                return;
+            }
+
+            if (!IsDemo && !OpenPort())
             {
                 return;
             }
@@ -126,7 +186,7 @@ namespace Radar
 
             try
             {
-                Send("SCAN 40 70");
+                Send($"SCAN {from} {to}");
                 Send("STREAM ON");   // then one "P <angle> <mm>" line per point
             }
             catch (Exception ex) when (ex is IOException || ex is InvalidOperationException || ex is TimeoutException)
@@ -167,12 +227,40 @@ namespace Radar
 
         /// <summary>
         /// Shows one reply line from the radar (format: cmd.h).
-        /// Until the beam is drawn on the radar screen, the last line is shown as text.
+        /// Points go to the beam, every other line to the status text.
         /// </summary>
         private void ShowReply(string line)
         {
             line = line.Trim();
+
+            // "P 45 523": the point just measured, 0 mm = no echo
+            if (line.StartsWith("P "))
+            {
+                string[] point = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (point.Length == 3
+                    && int.TryParse(point[1], out int angle) && angle >= 0 && angle <= ScanAngleMax
+                    && ushort.TryParse(point[2], out ushort mm))
+                {
+                    RadarScreen.BeamAngle = angle;
+                    RadarScreen.BeamDistanceMm = mm;
+                }
+                return;
+            }
+
             ShowStatus(line, line.StartsWith("ERR"));
+
+            // "OK SCAN 40 70": the sector as the firmware applied it (from <= to)
+            if (line.StartsWith("OK SCAN "))
+            {
+                string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 4
+                    && int.TryParse(parts[2], out int from) && from >= 0 && from <= ScanAngleMax
+                    && int.TryParse(parts[3], out int to) && to >= 0 && to <= ScanAngleMax)
+                {
+                    RadarScreen.SectorFrom = from;
+                    RadarScreen.SectorTo = to;
+                }
+            }
         }
 
         private void ShowStatus(string text, bool isError)
