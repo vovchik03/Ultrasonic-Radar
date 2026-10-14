@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:Radar"
         xmlns:controls="clr-namespace:Radar.Controls"
         mc:Ignorable="d"
-        Title="Radar TEST" Height="450" Width="500">
+        Title="Radar TEST" Height="520" Width="500">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="3*" />
@@ -19,20 +19,30 @@
         <!-- Bottom part (1/4) -->
         <Border Grid.Row="1" BorderBrush="#DDDDDD" BorderThickness="0,1,0,0">
             <StackPanel VerticalAlignment="Center">
+                <!-- What Start sends: "SCAN <from> <to>" or "GOTO <angle>", angles 0..180° -->
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                    <TextBlock Text="Port" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <ComboBox x:Name="PortBox" Width="80" Height="24" Margin="0,0,16,0"
-                              DropDownOpened="PortBox_DropDownOpened" SelectionChanged="PortBox_SelectionChanged" />
-
-                    <!-- Scan sector for "SCAN <from> <to>", 0..180° -->
+                    <RadioButton x:Name="ScanMode" Content="Scan" GroupName="Mode" IsChecked="True"
+                                 VerticalAlignment="Center" Margin="0,0,10,0" />
                     <TextBlock Text="From" VerticalAlignment="Center" Margin="0,0,6,0" />
                     <TextBox x:Name="FromBox" Text="0" Width="40" Height="24" MaxLength="3" Margin="0,0,10,0"
                              VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                             PreviewTextInput="AngleBox_PreviewTextInput" />
+                             PreviewTextInput="AngleBox_PreviewTextInput" GotKeyboardFocus="ScanBox_GotKeyboardFocus" />
                     <TextBlock Text="To" VerticalAlignment="Center" Margin="0,0,6,0" />
-                    <TextBox x:Name="ToBox" Text="180" Width="40" Height="24" MaxLength="3" Margin="0,0,16,0"
+                    <TextBox x:Name="ToBox" Text="180" Width="40" Height="24" MaxLength="3" Margin="0,0,24,0"
                              VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
-                             PreviewTextInput="AngleBox_PreviewTextInput" />
+                             PreviewTextInput="AngleBox_PreviewTextInput" GotKeyboardFocus="ScanBox_GotKeyboardFocus" />
+
+                    <RadioButton x:Name="GoToMode" Content="GoTo" GroupName="Mode"
+                                 VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBox x:Name="GoToBox" Text="90" Width="40" Height="24" MaxLength="3"
+                             VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                             PreviewTextInput="AngleBox_PreviewTextInput" GotKeyboardFocus="GoToBox_GotKeyboardFocus" />
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,8,0,0">
+                    <TextBlock Text="Port" VerticalAlignment="Center" Margin="0,0,6,0" />
+                    <ComboBox x:Name="PortBox" Width="80" Height="24" Margin="0,0,16,0"
+                              DropDownOpened="PortBox_DropDownOpened" SelectionChanged="PortBox_SelectionChanged" />
 
                     <Button x:Name="StartButton" Content="Start" Width="75" Height="40" Cursor="Hand" IsDefault="True" Click="StartButton_Click">
                         <Button.Resources>

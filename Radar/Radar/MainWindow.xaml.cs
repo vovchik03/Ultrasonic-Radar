@@ -168,10 +168,35 @@ namespace Radar
             return int.TryParse(box.Text, out angle) && angle >= 0 && angle <= ScanAngleMax;
         }
 
+        // Typing into a field picks the command it belongs to
+        private void ScanBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            ScanMode.IsChecked = true;
+        }
+
+        private void GoToBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+        {
+            GoToMode.IsChecked = true;
+        }
+
+        /// <summary>The command for Start from the selected mode, null if an angle is not 0..180.</summary>
+        private string BuildStartCommand()
+        {
+            if (GoToMode.IsChecked == true)
+            {
+                return TryReadAngle(GoToBox, out int target) ? $"GOTO {target}" : null;
+            }
+
+            // The firmware accepts the angles in any order
+            return TryReadAngle(FromBox, out int from) && TryReadAngle(ToBox, out int to)
+                ? $"SCAN {from} {to}"
+                : null;
+        }
+
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            // The firmware accepts the angles in any order
-            if (!TryReadAngle(FromBox, out int from) || !TryReadAngle(ToBox, out int to))
+            string command = BuildStartCommand();
+            if (command == null)
             {
                 ShowStatus($"angles must be 0..{ScanAngleMax}", true);
                 return;
@@ -186,7 +211,7 @@ namespace Radar
 
             try
             {
-                Send($"SCAN {from} {to}");
+                Send(command);
                 Send("STREAM ON");   // then one "P <angle> <mm>" line per point
             }
             catch (Exception ex) when (ex is IOException || ex is InvalidOperationException || ex is TimeoutException)
@@ -259,6 +284,18 @@ namespace Radar
                 {
                     RadarScreen.SectorFrom = from;
                     RadarScreen.SectorTo = to;
+                }
+            }
+
+            // "OK GOTO 120": the target is shown as a single edge line, the beam walks to it and stays
+            if (line.StartsWith("OK GOTO "))
+            {
+                string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 3
+                    && int.TryParse(parts[2], out int target) && target >= 0 && target <= ScanAngleMax)
+                {
+                    RadarScreen.SectorFrom = target;
+                    RadarScreen.SectorTo = target;
                 }
             }
         }
