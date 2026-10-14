@@ -12,6 +12,12 @@
   *                       matter, separator: space, '-' or ','
   *                       e.g. "SCAN 40 70", "scan 40-70"
   *                       -> OK SCAN 40 70
+  *    GOTO <angle>       move from the current angle to <angle> (0..180)
+  *                       at the SCAN pace, measuring on the way, then hold
+  *                       there and keep measuring that angle; GET reports
+  *                       the sector [current..angle]
+  *                       e.g. "GOTO 120"
+  *                       -> OK GOTO 120
   *    STOP               stop sweeping, servo holds its angle
   *                       -> OK STOP
   *    GET                distances of the current sector, "angle:mm" pairs,

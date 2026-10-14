@@ -137,6 +137,33 @@ static void Cmd_Scan(const char *args, Cmd_WriteFn write)
   write(buf);
 }
 
+static void Cmd_GoTo(const char *args, Cmd_WriteFn write)
+{
+  const char *p = Cmd_SkipSpaces(args);
+  uint16_t angle;
+
+  if (!Cmd_ParseNumber(&p, &angle) || (*Cmd_SkipSpaces(p) != '\0'))
+  {
+    write("ERR ARGS\r\n");
+    return;
+  }
+
+  if (angle > SCAN_ANGLE_MAX)
+  {
+    write("ERR RANGE\r\n");
+    return;
+  }
+
+  Scan_GoTo((uint8_t)angle);
+
+  char  buf[16] = "OK GOTO ";
+  char *end = Cmd_AppendUint(&buf[8], angle);
+  *end++ = '\r';
+  *end++ = '\n';
+  *end = '\0';
+  write(buf);
+}
+
 static void Cmd_Get(Cmd_WriteFn write)
 {
   /* Sent point by point, so no big buffer is needed:
@@ -224,6 +251,10 @@ void Cmd_Process(const char *line, Cmd_WriteFn write)
   if ((args = Cmd_MatchWord(p, "SCAN")) != NULL)
   {
     Cmd_Scan(args, write);
+  }
+  else if ((args = Cmd_MatchWord(p, "GOTO")) != NULL)
+  {
+    Cmd_GoTo(args, write);
   }
   else if ((args = Cmd_MatchWord(p, "STOP")) != NULL)
   {

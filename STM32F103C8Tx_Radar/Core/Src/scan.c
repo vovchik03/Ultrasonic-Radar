@@ -32,6 +32,8 @@ static uint8_t    scan_to;
 static uint8_t    scan_angle;        /* angle of the point being measured */
 static uint8_t    scan_last_angle;
 static int8_t     scan_dir;
+static uint8_t    scan_goto;         /* 1 = GOTO: one-way to scan_target, then hold */
+static uint8_t    scan_target;
 static uint32_t   scan_move_tick;
 static uint32_t   scan_settle_ms;
 static uint16_t   scan_map[SCAN_ANGLE_MAX + 1U];
@@ -70,6 +72,17 @@ static uint8_t Scan_NextAngle(void)
   if (scan_from == scan_to)
   {
     return scan_from;
+  }
+
+  /* GOTO: walk the grid towards the target, then keep measuring it.
+     Scan_Start() has already set the direction towards the target. */
+  if (scan_goto)
+  {
+    if (scan_angle == scan_target)
+    {
+      return scan_target;
+    }
+    return (scan_dir > 0) ? Scan_GridUp(scan_angle) : Scan_GridDown(scan_angle);
   }
 
   /* Bounce off the sector edges */
@@ -112,6 +125,7 @@ void Scan_Start(uint8_t from, uint8_t to)
 
   scan_from = from;
   scan_to = to;
+  scan_goto = 0;
 
   for (uint16_t i = 0; i <= SCAN_ANGLE_MAX; i++)
   {
@@ -130,6 +144,20 @@ void Scan_Start(uint8_t from, uint8_t to)
     scan_dir = -1;
     Scan_MoveTo(to);
   }
+}
+
+void Scan_GoTo(uint8_t angle_deg)
+{
+  if (angle_deg > SCAN_ANGLE_MAX)
+  {
+    angle_deg = SCAN_ANGLE_MAX;
+  }
+
+  /* The current angle is a sector edge, so Scan_Start() begins right here
+     and heads towards the other edge, the target */
+  Scan_Start((uint8_t)Servo_GetAngle(), angle_deg);
+  scan_target = angle_deg;
+  scan_goto = 1;
 }
 
 void Scan_Stop(void)

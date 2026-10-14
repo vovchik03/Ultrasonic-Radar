@@ -40,6 +40,12 @@ void     Scan_Init(void);
    Clears all stored distances. */
 void     Scan_Start(uint8_t from, uint8_t to);
 
+/* Move from the current servo angle to angle_deg (0..180) step by step,
+   measuring on the way like a one-way sweep, then hold there and keep
+   measuring that angle. The sector becomes [current..angle_deg].
+   Clears all stored distances. */
+void     Scan_GoTo(uint8_t angle_deg);
+
 /* Stop sweeping, the servo holds its current angle */
 void     Scan_Stop(void);
 
