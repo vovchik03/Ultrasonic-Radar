@@ -5,7 +5,9 @@
   *                   Step-and-measure: move the servo one step, wait until it
   *                   settles, ping, store the distance for that angle, next
   *                   step. The servo sweeps back and forth inside the sector
-  *                   [from..to], so every distance belongs to a known angle.
+  *                   [from..to] (or goes to / holds one angle, see
+  *                   Scan_GoTo / Scan_Hold), so every distance belongs to a
+  *                   known angle.
   ******************************************************************************
   */
 #ifndef __SCAN_H
@@ -45,6 +47,11 @@ void     Scan_Start(uint8_t from, uint8_t to);
    measuring that angle. The sector becomes [current..angle_deg].
    Clears all stored distances. */
 void     Scan_GoTo(uint8_t angle_deg);
+
+/* Turn straight to angle_deg (0..180) without measuring on the way, then
+   keep measuring that angle. The sector becomes [angle_deg..angle_deg].
+   Clears all stored distances. */
+void     Scan_Hold(uint8_t angle_deg);
 
 /* Stop sweeping, the servo holds its current angle */
 void     Scan_Stop(void);

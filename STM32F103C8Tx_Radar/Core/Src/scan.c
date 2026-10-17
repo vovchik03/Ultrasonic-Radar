@@ -9,6 +9,13 @@
   *              until the sensor is free, then request one ping
   *    MEASURE : wait for the echo result, store it, go to MOVE
   *
+  *  The mode picks the next angle after every point:
+  *
+  *    SWEEP   : back and forth inside [from..to]           (SCAN)
+  *    GOTO    : one way from the start angle to the target
+  *              on the same grid, then HOLD                (GOTO)
+  *    HOLD    : the same angle again and again             (HOLD)
+  *
   *  The ultrasonic driver runs in single-shot mode, so a result always
   *  belongs to the ping requested at the current angle. One 9 deg step
   *  takes 64..108 ms (servo settle + echo), a 0..180 sweep takes 1.3..2.2 s.
@@ -26,14 +33,21 @@ typedef enum
   SCAN_STATE_MEASURE
 } Scan_State;
 
+typedef enum
+{
+  SCAN_MODE_SWEEP = 0,
+  SCAN_MODE_GOTO,
+  SCAN_MODE_HOLD
+} Scan_Mode;
+
 static Scan_State scan_state;
+static Scan_Mode  scan_mode;
 static uint8_t    scan_from;
 static uint8_t    scan_to;
 static uint8_t    scan_angle;        /* angle of the point being measured */
 static uint8_t    scan_last_angle;
 static int8_t     scan_dir;
-static uint8_t    scan_goto;         /* 1 = GOTO: one-way to scan_target, then hold */
-static uint8_t    scan_target;
+static uint8_t    scan_target;       /* GOTO end angle */
 static uint32_t   scan_move_tick;
 static uint32_t   scan_settle_ms;
 static uint16_t   scan_map[SCAN_ANGLE_MAX + 1U];
@@ -68,21 +82,28 @@ static uint8_t Scan_GridDown(uint8_t angle)
 
 static uint8_t Scan_NextAngle(void)
 {
-  /* Single-angle sector: keep measuring the same angle */
+  switch (scan_mode)
+  {
+    case SCAN_MODE_HOLD:
+      return scan_angle;
+
+    case SCAN_MODE_GOTO:
+      if (scan_angle == scan_target)
+      {
+        scan_mode = SCAN_MODE_HOLD;    /* arrived */
+        return scan_angle;
+      }
+      /* The target is a sector edge, so the grid steps end exactly on it */
+      return (scan_dir > 0) ? Scan_GridUp(scan_angle) : Scan_GridDown(scan_angle);
+
+    default:
+      break;
+  }
+
+  /* SWEEP over a single-angle sector: keep measuring the same angle */
   if (scan_from == scan_to)
   {
     return scan_from;
-  }
-
-  /* GOTO: walk the grid towards the target, then keep measuring it.
-     Scan_Start() has already set the direction towards the target. */
-  if (scan_goto)
-  {
-    if (scan_angle == scan_target)
-    {
-      return scan_target;
-    }
-    return (scan_dir > 0) ? Scan_GridUp(scan_angle) : Scan_GridDown(scan_angle);
   }
 
   /* Bounce off the sector edges */
@@ -98,15 +119,9 @@ static uint8_t Scan_NextAngle(void)
   return (scan_dir > 0) ? Scan_GridUp(scan_angle) : Scan_GridDown(scan_angle);
 }
 
-void Scan_Init(void)
-{
-  /* Pings are requested by the scanner, one per angle */
-  Ultrasonic_SetAutoMode(0);
-  scan_last_angle = (uint8_t)Servo_GetAngle();
-  Scan_Start(SCAN_DEFAULT_FROM, SCAN_DEFAULT_TO);
-}
-
-void Scan_Start(uint8_t from, uint8_t to)
+/* Sets the sector (order does not matter, clamped to 0..180)
+   and clears all stored distances */
+static void Scan_SetSector(uint8_t from, uint8_t to)
 {
   if (from > to)
   {
@@ -125,39 +140,64 @@ void Scan_Start(uint8_t from, uint8_t to)
 
   scan_from = from;
   scan_to = to;
-  scan_goto = 0;
 
   for (uint16_t i = 0; i <= SCAN_ANGLE_MAX; i++)
   {
     scan_map[i] = 0;
   }
+}
+
+static uint8_t Scan_ClampAngle(uint8_t angle)
+{
+  return (angle > SCAN_ANGLE_MAX) ? (uint8_t)SCAN_ANGLE_MAX : angle;
+}
+
+void Scan_Init(void)
+{
+  /* Pings are requested by the scanner, one per angle */
+  Ultrasonic_SetAutoMode(0);
+  scan_last_angle = (uint8_t)Servo_GetAngle();
+  Scan_Start(SCAN_DEFAULT_FROM, SCAN_DEFAULT_TO);
+}
+
+void Scan_Start(uint8_t from, uint8_t to)
+{
+  Scan_SetSector(from, to);
+  scan_mode = SCAN_MODE_SWEEP;
 
   /* Start from the sector edge closest to the current servo position */
   int16_t pos = Servo_GetAngle();
-  if ((pos - (int16_t)from) <= ((int16_t)to - pos))
+  if ((pos - (int16_t)scan_from) <= ((int16_t)scan_to - pos))
   {
     scan_dir = 1;
-    Scan_MoveTo(from);
+    Scan_MoveTo(scan_from);
   }
   else
   {
     scan_dir = -1;
-    Scan_MoveTo(to);
+    Scan_MoveTo(scan_to);
   }
 }
 
 void Scan_GoTo(uint8_t angle_deg)
 {
-  if (angle_deg > SCAN_ANGLE_MAX)
-  {
-    angle_deg = SCAN_ANGLE_MAX;
-  }
+  uint8_t pos = (uint8_t)Servo_GetAngle();
 
-  /* The current angle is a sector edge, so Scan_Start() begins right here
-     and heads towards the other edge, the target */
-  Scan_Start((uint8_t)Servo_GetAngle(), angle_deg);
-  scan_target = angle_deg;
-  scan_goto = 1;
+  scan_target = Scan_ClampAngle(angle_deg);
+  Scan_SetSector(pos, scan_target);
+  scan_mode = SCAN_MODE_GOTO;
+  scan_dir = (scan_target >= pos) ? 1 : -1;
+
+  /* First point right where the servo is now */
+  Scan_MoveTo(pos);
+}
+
+void Scan_Hold(uint8_t angle_deg)
+{
+  angle_deg = Scan_ClampAngle(angle_deg);
+  Scan_SetSector(angle_deg, angle_deg);
+  scan_mode = SCAN_MODE_HOLD;
+  Scan_MoveTo(angle_deg);
 }
 
 void Scan_Stop(void)

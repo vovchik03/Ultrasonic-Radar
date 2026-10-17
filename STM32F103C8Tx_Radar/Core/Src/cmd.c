@@ -137,31 +137,62 @@ static void Cmd_Scan(const char *args, Cmd_WriteFn write)
   write(buf);
 }
 
-static void Cmd_GoTo(const char *args, Cmd_WriteFn write)
+/* Parses the single "<angle>" argument of GOTO / HOLD.
+   Returns 1 on success, sends the error reply and returns 0 otherwise. */
+static uint8_t Cmd_ParseAngleArg(const char *args, uint8_t *angle, Cmd_WriteFn write)
 {
   const char *p = Cmd_SkipSpaces(args);
-  uint16_t angle;
+  uint16_t value;
 
-  if (!Cmd_ParseNumber(&p, &angle) || (*Cmd_SkipSpaces(p) != '\0'))
+  if (!Cmd_ParseNumber(&p, &value) || (*Cmd_SkipSpaces(p) != '\0'))
   {
     write("ERR ARGS\r\n");
-    return;
+    return 0;
   }
 
-  if (angle > SCAN_ANGLE_MAX)
+  if (value > SCAN_ANGLE_MAX)
   {
     write("ERR RANGE\r\n");
-    return;
+    return 0;
   }
 
-  Scan_GoTo((uint8_t)angle);
+  *angle = (uint8_t)value;
+  return 1;
+}
 
-  char  buf[16] = "OK GOTO ";
-  char *end = Cmd_AppendUint(&buf[8], angle);
+/* Sends "<prefix><angle>\r\n", e.g. "OK HOLD 120" */
+static void Cmd_ReplyAngle(const char *prefix, uint8_t angle, Cmd_WriteFn write)
+{
+  char  buf[6];
+  char *end = Cmd_AppendUint(buf, angle);
   *end++ = '\r';
   *end++ = '\n';
   *end = '\0';
+
+  write(prefix);
   write(buf);
+}
+
+static void Cmd_GoTo(const char *args, Cmd_WriteFn write)
+{
+  uint8_t angle;
+
+  if (Cmd_ParseAngleArg(args, &angle, write))
+  {
+    Scan_GoTo(angle);
+    Cmd_ReplyAngle("OK GOTO ", angle, write);
+  }
+}
+
+static void Cmd_Hold(const char *args, Cmd_WriteFn write)
+{
+  uint8_t angle;
+
+  if (Cmd_ParseAngleArg(args, &angle, write))
+  {
+    Scan_Hold(angle);
+    Cmd_ReplyAngle("OK HOLD ", angle, write);
+  }
 }
 
 static void Cmd_Get(Cmd_WriteFn write)
@@ -255,6 +286,10 @@ void Cmd_Process(const char *line, Cmd_WriteFn write)
   else if ((args = Cmd_MatchWord(p, "GOTO")) != NULL)
   {
     Cmd_GoTo(args, write);
+  }
+  else if ((args = Cmd_MatchWord(p, "HOLD")) != NULL)
+  {
+    Cmd_Hold(args, write);
   }
   else if ((args = Cmd_MatchWord(p, "STOP")) != NULL)
   {

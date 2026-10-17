@@ -18,6 +18,11 @@
   *                       the sector [current..angle]
   *                       e.g. "GOTO 120"
   *                       -> OK GOTO 120
+  *    HOLD <angle>       turn straight to <angle> (0..180), no measurements
+  *                       on the way, then keep measuring that angle;
+  *                       GET reports only <angle>
+  *                       e.g. "HOLD 120"
+  *                       -> OK HOLD 120
   *    STOP               stop sweeping, servo holds its angle
   *                       -> OK STOP
   *    GET                distances of the current sector, "angle:mm" pairs,
