@@ -22,10 +22,10 @@ namespace Radar.Controls
 
         public static readonly DependencyProperty MaxRangeMmProperty =
             DependencyProperty.Register(nameof(MaxRangeMm), typeof(double), typeof(RadarView),
-                new FrameworkPropertyMetadata(4000.0, FrameworkPropertyMetadataOptions.AffectsRender, OnGridChanged),
+                new FrameworkPropertyMetadata(2000.0, FrameworkPropertyMetadataOptions.AffectsRender, OnGridChanged),
                 value => (double)value > 0);
 
-        /// <summary>Distance at the outer ring, in mm. 4000 mm is the HC-SR04 limit.</summary>
+        /// <summary>Distance at the outer ring, in mm. 2000 mm is the HC-SR04 limit.</summary>
         public double MaxRangeMm
         {
             get => (double)GetValue(MaxRangeMmProperty);
