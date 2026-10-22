@@ -168,34 +168,31 @@ namespace Radar
             return int.TryParse(box.Text, out angle) && angle >= 0 && angle <= ScanAngleMax;
         }
 
-        // Typing into a field picks the command it belongs to
-        private void ScanBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
-        {
-            ScanMode.IsChecked = true;
-        }
-
-        private void GoToBox_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
-        {
-            GoToMode.IsChecked = true;
-        }
-
-        /// <summary>The command for Start from the selected mode, null if an angle is not 0..180.</summary>
-        private string BuildStartCommand()
-        {
-            if (GoToMode.IsChecked == true)
-            {
-                return TryReadAngle(GoToBox, out int target) ? $"GOTO {target}" : null;
-            }
-
-            // The firmware accepts the angles in any order
-            return TryReadAngle(FromBox, out int from) && TryReadAngle(ToBox, out int to)
-                ? $"SCAN {from} {to}"
-                : null;
-        }
-
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
-            string command = BuildStartCommand();
+            // The firmware accepts the angles in any order
+            SendCommand(TryReadAngle(FromBox, out int from) && TryReadAngle(ToBox, out int to)
+                ? $"SCAN {from} {to}"
+                : null);
+        }
+
+        private void GoToButton_Click(object sender, RoutedEventArgs e)
+        {
+            SendCommand(TryReadAngle(GoToBox, out int target) ? $"GOTO {target}" : null);
+        }
+
+        private void GoToBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;   // otherwise the default button (Start) gets it
+                GoToButton_Click(sender, e);
+            }
+        }
+
+        /// <summary>Sends the command and turns streaming on. null = an angle is not 0..180.</summary>
+        private void SendCommand(string command)
+        {
             if (command == null)
             {
                 ShowStatus($"angles must be 0..{ScanAngleMax}", true);
