@@ -157,7 +157,13 @@ void Scan_Init(void)
   /* Pings are requested by the scanner, one per angle */
   Ultrasonic_SetAutoMode(0);
   scan_last_angle = (uint8_t)Servo_GetAngle();
-  Scan_Start(SCAN_DEFAULT_FROM, SCAN_DEFAULT_TO);
+  scan_angle = scan_last_angle;
+
+  /* Idle after power-up: the servo holds its angle, no pings
+     until SCAN / GOTO / HOLD */
+  Scan_SetSector(SCAN_DEFAULT_FROM, SCAN_DEFAULT_TO);
+  scan_mode = SCAN_MODE_SWEEP;
+  scan_state = SCAN_STATE_STOPPED;
 }
 
 void Scan_Start(uint8_t from, uint8_t to)

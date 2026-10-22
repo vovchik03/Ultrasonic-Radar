@@ -32,10 +32,12 @@ extern "C" {
 #define SCAN_SETTLE_BASE_MS      40U
 #define SCAN_SETTLE_PER_DEG_MS   2U     /* SG90: ~0.1 s / 60 deg */
 
-/* Sector scanned after power-up */
+/* Sector reported by GET after power-up (all 0, nothing measured yet) */
 #define SCAN_DEFAULT_FROM        0U
 #define SCAN_DEFAULT_TO          180U
 
+/* Stopped after init: the servo holds its angle and waits for
+   Scan_Start / Scan_GoTo / Scan_Hold */
 void     Scan_Init(void);
 
 /* Start sweeping [from..to] deg (0..180, order does not matter).

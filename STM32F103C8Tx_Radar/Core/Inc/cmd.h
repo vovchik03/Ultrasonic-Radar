@@ -6,6 +6,9 @@
   *                   writes the reply through the given function, so the same
   *                   handler works over UART now and over USB later.
   *
+  *  After power-up the radar is idle: the servo holds 90 deg, no pings
+  *  until SCAN, GOTO or HOLD.
+  *
   *  Commands (case-insensitive, one per line, CR and/or LF terminated):
   *
   *    SCAN <from> <to>   sweep the sector, angles 0..180, order does not

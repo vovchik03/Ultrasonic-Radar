@@ -40,12 +40,16 @@ namespace Radar.Device
         /// <summary>One reply line, without CR LF.</summary>
         public event Action<string> LineReceived;
 
-        /// <summary>Power-up: sweeps 0..180 with streaming off, as the firmware does.</summary>
+        /// <summary>Power-up: idle at 90° with streaming off, waits for a command, as the firmware does.</summary>
         public void Start()
         {
             angle = 90;
             stream = false;
-            StartScan(0, AngleMax);
+            from = 0;
+            to = AngleMax;
+            gotoMode = false;
+            scanning = false;
+            Array.Clear(distances, 0, distances.Length);
             timer.Start();
         }
 

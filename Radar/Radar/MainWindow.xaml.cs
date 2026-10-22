@@ -62,7 +62,7 @@ namespace Radar
             ShowStatus("", false);
         }
 
-        /// <summary>Back to what the firmware has after power-up: sector 0..180, nothing measured.</summary>
+        /// <summary>Back to what the firmware has after power-up: idle, sector 0..180, nothing measured.</summary>
         private void ResetRadarScreen()
         {
             RadarScreen.SectorFrom = 0;

@@ -51,7 +51,7 @@
 /* Last measurement, watch it in the debugger (Live Watch) */
 volatile uint8_t  radar_angle;
 volatile uint16_t radar_distance_mm;
-volatile uint8_t  radar_status;
+volatile uint8_t  radar_status = ULTRASONIC_NOT_READY;   /* LED blinks until the first point */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -98,7 +98,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   Servo_Init(SERVO_MODE_180);
   Ultrasonic_Init();
-  Scan_Init();                /* starts sweeping the default sector */
+  Scan_Init();                /* idle at the center, waits for a command */
   Uart_Init(CMD_UART_BAUD);
 
   uint32_t led_tick = HAL_GetTick();
