@@ -78,8 +78,9 @@ void Error_Handler(void);
  *  PA14  SWCLK              SYS          ST-Link debug
  *  PD0   OSC_IN             RCC          8 MHz HSE crystal
  *  PD1   OSC_OUT            RCC          8 MHz HSE crystal
- *  PA11  USB_DM             USB          planned USB link to the PC app
- *  PA12  USB_DP             USB          planned USB link to the PC app
+ *  PA11  USB_DM             -            wired to the Blue Pill micro-USB, unused
+ *  PA12  USB_DP             -            wired to the Blue Pill micro-USB, unused
+ *                                        (has an on-board pull-up to 3.3 V)
  *
  *  Pins configured in CubeMX get their defines above (generated from the
  *  GPIO User Label). Pins below are set up by the drivers through registers,

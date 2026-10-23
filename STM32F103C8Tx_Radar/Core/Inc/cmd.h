@@ -3,8 +3,8 @@
   * @file           : cmd.h
   * @brief          : Text command handler for the radar.
   *                   Does not depend on the transport: takes one line and
-  *                   writes the reply through the given function, so the same
-  *                   handler works over UART now and over USB later.
+  *                   writes the reply through the given function, so the
+  *                   handler is not tied to UART.
   *
   *  After power-up the radar is idle: the servo holds 90 deg, no pings
   *  until SCAN, GOTO or HOLD.

@@ -8200,7 +8200,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "588bed49-d46e-4f63-8274-d7e7b615cc1c")
-		(property "Reference" "U2"
+		(property "Reference" "U3"
 			(at 379.73 177.8 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8282,7 +8282,7 @@
 		(instances
 			(project "ultrasonic"
 				(path "/289eb5d8-08cd-4918-afaa-21b9428315d9"
-					(reference "U2")
+					(reference "U3")
 					(unit 1)
 				)
 			)
@@ -8299,7 +8299,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "590243c1-bf04-4120-baca-39840c99a9b7")
-		(property "Reference" "J4"
+		(property "Reference" "J5"
 			(at 313.69 95.25 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8361,7 +8361,7 @@
 		(instances
 			(project "ultrasonic"
 				(path "/289eb5d8-08cd-4918-afaa-21b9428315d9"
-					(reference "J4")
+					(reference "J5")
 					(unit 1)
 				)
 			)
