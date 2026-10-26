@@ -57,8 +57,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define LED_Pin 				GPIO_PIN_13
-#define LED_GPIO_Port 			GPIOC
+#define LED_Pin GPIO_PIN_13
+#define LED_GPIO_Port GPIOC
 
 /* USER CODE BEGIN Private defines */
 /* ============================================================================
@@ -76,8 +76,8 @@ void Error_Handler(void);
  *  Reserved, do not use as GPIO:
  *  PA13  SWDIO              SYS          ST-Link debug
  *  PA14  SWCLK              SYS          ST-Link debug
- *  PD0   OSC_IN             RCC          8 MHz HSE crystal
- *  PD1   OSC_OUT            RCC          8 MHz HSE crystal
+ *  PD0   OSC_IN             -            8 MHz HSE crystal, unused: it does not
+ *  PD1   OSC_OUT            -            start on this board, clock is HSI 64 MHz
  *  PA11  USB_DM             -            wired to the Blue Pill micro-USB, unused
  *  PA12  USB_DP             -            wired to the Blue Pill micro-USB, unused
  *                                        (has an on-board pull-up to 3.3 V)
