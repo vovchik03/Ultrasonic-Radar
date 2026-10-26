@@ -15,7 +15,7 @@ namespace Radar.Device
     {
         private const int AngleMax = 180;       // SCAN_ANGLE_MAX
         private const int StepDeg = 9;          // SCAN_STEP_DEG
-        private const int StepMs = 80;          // one 9° step takes 64..108 ms (scan.c)
+        private const int StepMs = 80;          // one 9° step takes 70..108 ms (scan.c)
         private const int RangeMaxMm = 4000;    // HC-SR04: farther = no echo
         private const int NoiseMm = 15;
 

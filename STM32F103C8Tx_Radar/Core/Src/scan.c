@@ -16,9 +16,14 @@
   *              on the same grid, then HOLD                (GOTO)
   *    HOLD    : the same angle again and again             (HOLD)
   *
+  *  With a speed limit (Scan_SetSpeed) MOVE also steps the servo degree by
+  *  degree towards the next angle instead of commanding it at once.
+  *
   *  The ultrasonic driver runs in single-shot mode, so a result always
-  *  belongs to the ping requested at the current angle. One 9 deg step
-  *  takes 64..108 ms (servo settle + echo), a 0..180 sweep takes 1.3..2.2 s.
+  *  belongs to the ping requested at the current angle. Without a speed
+  *  limit one 9 deg step takes 70..108 ms (servo settle + echo, at least
+  *  ULTRASONIC_PERIOD_MS), a 0..180 sweep takes 1.4..2.2 s. Speed effect
+  *  and the recommended range: see SCAN_SPEED_MAX_DPS in scan.h.
   ******************************************************************************
   */
 #include "scan.h"
@@ -50,21 +55,63 @@ static int8_t     scan_dir;
 static uint8_t    scan_target;       /* GOTO end angle */
 static uint32_t   scan_move_tick;
 static uint32_t   scan_settle_ms;
+static uint8_t    scan_move_from;    /* servo angle when the move started */
+static uint32_t   scan_ramp_ms;      /* speed-limited move time, 0 = no limit */
+static uint16_t   scan_speed_dps;    /* 0 = no limit */
 static uint16_t   scan_map[SCAN_ANGLE_MAX + 1U];
 
 static void Scan_MoveTo(uint8_t angle)
 {
-  int16_t travel = (int16_t)angle - Servo_GetAngle();
+  scan_move_from = (uint8_t)Servo_GetAngle();
+
+  int16_t travel = (int16_t)angle - scan_move_from;
   if (travel < 0)
   {
     travel = -travel;
   }
 
-  Servo_SetAngle(angle);
+  /* Time the servo needs at its own top speed */
+  uint32_t travel_ms = (uint32_t)travel * SCAN_SETTLE_PER_DEG_MS;
+
+  if (scan_speed_dps == 0U)
+  {
+    scan_ramp_ms = 0;
+    Servo_SetAngle(angle);
+  }
+  else
+  {
+    /* Scan_Ramp() walks the servo there, the settle time starts at its end */
+    scan_ramp_ms = ((uint32_t)travel * 1000U) / scan_speed_dps;
+    if (scan_ramp_ms > travel_ms)
+    {
+      travel_ms = scan_ramp_ms;
+    }
+  }
+
   scan_angle = angle;
-  scan_settle_ms = SCAN_SETTLE_BASE_MS + (uint32_t)travel * SCAN_SETTLE_PER_DEG_MS;
+  scan_settle_ms = SCAN_SETTLE_BASE_MS + travel_ms;
   scan_move_tick = HAL_GetTick();
   scan_state = SCAN_STATE_MOVE;
+}
+
+/* Speed-limited move: servo position for the time since Scan_MoveTo() */
+static void Scan_Ramp(void)
+{
+  int16_t  pos = (int16_t)scan_angle;
+  uint32_t elapsed = HAL_GetTick() - scan_move_tick;
+
+  if (elapsed < scan_ramp_ms)
+  {
+    /* elapsed * speed < travel * 1000, no overflow */
+    int16_t moved = (int16_t)((elapsed * scan_speed_dps) / 1000U);
+    pos = (scan_angle > scan_move_from) ? (int16_t)(scan_move_from + moved)
+                                        : (int16_t)(scan_move_from - moved);
+  }
+
+  if (pos != Servo_GetAngle())
+  {
+    Servo_SetAngle(pos);
+  }
 }
 
 /* Grid point above the angle, the last step is shortened to land on "to" */
@@ -158,6 +205,7 @@ void Scan_Init(void)
   Ultrasonic_SetAutoMode(0);
   scan_last_angle = (uint8_t)Servo_GetAngle();
   scan_angle = scan_last_angle;
+  scan_speed_dps = SCAN_SPEED_DEFAULT_DPS;
 
   /* Idle after power-up: the servo holds its angle, no pings
      until SCAN / GOTO / HOLD */
@@ -211,6 +259,16 @@ void Scan_Stop(void)
   scan_state = SCAN_STATE_STOPPED;
 }
 
+void Scan_SetSpeed(uint16_t deg_per_s)
+{
+  scan_speed_dps = (deg_per_s > SCAN_SPEED_MAX_DPS) ? (uint16_t)SCAN_SPEED_MAX_DPS : deg_per_s;
+}
+
+uint16_t Scan_GetSpeed(void)
+{
+  return scan_speed_dps;
+}
+
 uint8_t Scan_IsRunning(void)
 {
   return (scan_state != SCAN_STATE_STOPPED) ? 1U : 0U;
@@ -247,6 +305,8 @@ uint8_t Scan_Update(void)
   switch (scan_state)
   {
     case SCAN_STATE_MOVE:
+      Scan_Ramp();
+
       /* A result arriving here is from a ping requested before the move
          (e.g. STOP + SCAN while measuring) and is ignored */
       if (((HAL_GetTick() - scan_move_tick) >= scan_settle_ms) && !Ultrasonic_IsBusy())

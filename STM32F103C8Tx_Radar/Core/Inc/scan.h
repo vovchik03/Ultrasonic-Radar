@@ -32,6 +32,32 @@ extern "C" {
 #define SCAN_SETTLE_BASE_MS      40U
 #define SCAN_SETTLE_PER_DEG_MS   2U     /* SG90: ~0.1 s / 60 deg */
 
+/* Servo speed limit between two points, deg/s. 0 = no limit: the servo gets
+   the new angle at once and turns at its own top speed (1000 /
+   SCAN_SETTLE_PER_DEG_MS = 500 deg/s), so SCAN_SPEED_MAX_DPS acts the same.
+ *
+ * Time per point (one ping):
+ *   T      = max(ULTRASONIC_PERIOD_MS, settle + t_echo)
+ *   settle = SCAN_SETTLE_BASE_MS + max(2 ms * step, 1000 * step / speed)
+ *   t_echo ~ 0.5 ms + 5.83 ms per metre (sound there and back, 343 m/s),
+ *            38..50 ms when nothing is in range
+ *
+ * 9 deg step, object at 1 m (t_echo ~ 6 ms), 0..180 sweep = 20 steps:
+ *   speed 0 / 500 :  70 ms per point, 14.3 Hz, sweep 1.4 s
+ *   speed 180     :  96 ms,           10.4 Hz, sweep 1.9 s
+ *   speed 90      : 146 ms,            6.8 Hz, sweep 2.9 s
+ *   speed 45      : 246 ms,            4.1 Hz, sweep 4.9 s
+ *   speed 20      : 496 ms,            2.0 Hz, sweep 9.9 s
+ * Above ~380 deg/s the move hides inside the 70 ms ping period, so the rate
+ * does not change any more.
+ *
+ * Recommended 90..180 deg/s: smooth motion, much lower servo current peaks
+ * than the full-speed jump (less 5 V sag, fewer false echoes), and a sweep
+ * still under 3 s. Below ~45 deg/s the picture updates too slowly (> 5 s
+ * per sweep). 0 = fastest scan, but the servo jerks every step. */
+#define SCAN_SPEED_MAX_DPS       500U
+#define SCAN_SPEED_DEFAULT_DPS   0U
+
 /* Sector reported by GET after power-up (all 0, nothing measured yet) */
 #define SCAN_DEFAULT_FROM        0U
 #define SCAN_DEFAULT_TO          180U
@@ -57,6 +83,11 @@ void     Scan_Hold(uint8_t angle_deg);
 
 /* Stop sweeping, the servo holds its current angle */
 void     Scan_Stop(void);
+
+/* Servo speed for all moves, deg/s: 0 = no limit, 1..SCAN_SPEED_MAX_DPS
+   (larger values are clamped). Applies from the next move. */
+void     Scan_SetSpeed(uint16_t deg_per_s);
+uint16_t Scan_GetSpeed(void);
 
 uint8_t  Scan_IsRunning(void);
 uint8_t  Scan_GetFrom(void);

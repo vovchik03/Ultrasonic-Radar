@@ -19,8 +19,11 @@ extern "C" {
 #include <stdint.h>
 
 /* Minimum time between two pings. HC-SR04 datasheet recommends >= 60 ms,
-   otherwise the echo of the previous ping can be taken as the new one. */
-#define ULTRASONIC_PERIOD_MS          60U
+   otherwise the echo of the previous ping can be taken as the new one.
+   70 ms leaves a margin and gives the scanner a steady 14.3 Hz: with the
+   default 9 deg step (58 ms settle) every point up to ~2 m takes exactly
+   70 ms, see scan.h. */
+#define ULTRASONIC_PERIOD_MS          70U
 
 /* No valid echo within this time -> ULTRASONIC_NO_ECHO.
    HC-SR04 holds ECHO high for ~38 ms when nothing is in range. */

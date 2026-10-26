@@ -160,11 +160,11 @@ static uint8_t Cmd_ParseAngleArg(const char *args, uint8_t *angle, Cmd_WriteFn w
   return 1;
 }
 
-/* Sends "<prefix><angle>\r\n", e.g. "OK HOLD 120" */
-static void Cmd_ReplyAngle(const char *prefix, uint8_t angle, Cmd_WriteFn write)
+/* Sends "<prefix><value>\r\n", e.g. "OK HOLD 120" */
+static void Cmd_ReplyNumber(const char *prefix, uint16_t value, Cmd_WriteFn write)
 {
-  char  buf[6];
-  char *end = Cmd_AppendUint(buf, angle);
+  char  buf[8];
+  char *end = Cmd_AppendUint(buf, value);
   *end++ = '\r';
   *end++ = '\n';
   *end = '\0';
@@ -180,7 +180,7 @@ static void Cmd_GoTo(const char *args, Cmd_WriteFn write)
   if (Cmd_ParseAngleArg(args, &angle, write))
   {
     Scan_GoTo(angle);
-    Cmd_ReplyAngle("OK GOTO ", angle, write);
+    Cmd_ReplyNumber("OK GOTO ", angle, write);
   }
 }
 
@@ -191,8 +191,29 @@ static void Cmd_Hold(const char *args, Cmd_WriteFn write)
   if (Cmd_ParseAngleArg(args, &angle, write))
   {
     Scan_Hold(angle);
-    Cmd_ReplyAngle("OK HOLD ", angle, write);
+    Cmd_ReplyNumber("OK HOLD ", angle, write);
   }
+}
+
+static void Cmd_Speed(const char *args, Cmd_WriteFn write)
+{
+  const char *p = Cmd_SkipSpaces(args);
+  uint16_t value;
+
+  if (!Cmd_ParseNumber(&p, &value) || (*Cmd_SkipSpaces(p) != '\0'))
+  {
+    write("ERR ARGS\r\n");
+    return;
+  }
+
+  if (value > SCAN_SPEED_MAX_DPS)
+  {
+    write("ERR RANGE\r\n");
+    return;
+  }
+
+  Scan_SetSpeed(value);
+  Cmd_ReplyNumber("OK SPEED ", Scan_GetSpeed(), write);
 }
 
 static void Cmd_Get(Cmd_WriteFn write)
@@ -290,6 +311,10 @@ void Cmd_Process(const char *line, Cmd_WriteFn write)
   else if ((args = Cmd_MatchWord(p, "HOLD")) != NULL)
   {
     Cmd_Hold(args, write);
+  }
+  else if ((args = Cmd_MatchWord(p, "SPEED")) != NULL)
+  {
+    Cmd_Speed(args, write);
   }
   else if ((args = Cmd_MatchWord(p, "STOP")) != NULL)
   {

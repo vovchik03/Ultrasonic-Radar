@@ -26,6 +26,13 @@
   *                       GET reports only <angle>
   *                       e.g. "HOLD 120"
   *                       -> OK HOLD 120
+  *    SPEED <deg/s>      servo speed for SCAN, GOTO and HOLD moves,
+  *                       1..500 deg/s, 0 = no limit (after power-up);
+  *                       applies from the next step. Recommended 90..180:
+  *                       smooth motion, sweep 0..180 in 1.9..2.9 s
+  *                       (0: 1.4 s but the servo jerks), see scan.h
+  *                       e.g. "SPEED 90"
+  *                       -> OK SPEED 90
   *    STOP               stop sweeping, servo holds its angle
   *                       -> OK STOP
   *    GET                distances of the current sector, "angle:mm" pairs,
@@ -38,7 +45,8 @@
   *                       0 = no echo
   *                       -> P 45 523
   *
-  *  Errors: ERR UNKNOWN, ERR ARGS (bad format), ERR RANGE (angle > 180)
+  *  Errors: ERR UNKNOWN, ERR ARGS (bad format),
+  *          ERR RANGE (angle > 180, speed > 500)
   ******************************************************************************
   */
 #ifndef __CMD_H
