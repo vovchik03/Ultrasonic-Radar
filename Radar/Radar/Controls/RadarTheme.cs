@@ -26,6 +26,12 @@ namespace Radar.Controls
         public static readonly Pen   BeamDirection = MakePen(Solid(0xE2, 0x4B, 0x4A, 0x60), 1.5, dashed: true);
         public static readonly Brush BeamText      = Solid(0xE2, 0x4B, 0x4A);
 
+        // Mouse: angle under the cursor and the sector being dragged out
+        public static readonly Pen   Hover          = MakePen(Solid(0xB5, 0xC9, 0x6A, 0x80), 1, dashed: true);
+        public static readonly Brush SelectionFill  = Solid(0xE8, 0xC5, 0x4A, 0x22);
+        public static readonly Pen   SelectionEdge  = MakePen(Solid(0xE8, 0xC5, 0x4A), 1.5, dashed: true);
+        public static readonly Brush SelectionLabel = Solid(0xE8, 0xC5, 0x4A);
+
         public static readonly Typeface LabelTypeface = new Typeface("Consolas");
         public const double LabelSize = 11;
         public const double ReadoutSize = 13;

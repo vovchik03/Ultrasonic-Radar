@@ -21,10 +21,12 @@ extern "C" {
 
 #define SCAN_ANGLE_MAX           180U
 
-/* Angle between two neighbouring measurements. HC-SR04 beam is ~15 deg wide,
-   so 9 deg still overlaps neighbouring beams. Points lie on the grid
-   from, from + STEP, ... plus the sector edge "to" itself. */
-#define SCAN_STEP_DEG            9U
+/* Angle between two neighbouring measurements, set by Scan_SetStep (STEP
+   command). HC-SR04 beam is ~15 deg wide, so up to ~15 deg neighbouring
+   beams still overlap. Points lie on the grid from, from + step, ... plus
+   the sector edge "to" itself. */
+#define SCAN_STEP_DEFAULT_DEG    9U
+#define SCAN_STEP_MAX_DEG        30U
 
 /* Servo settle time before a ping: BASE + PER_DEG * travelled degrees.
    BASE covers the 20 ms PWM period (new pulse width is applied on the next
@@ -88,6 +90,11 @@ void     Scan_Stop(void);
    (larger values are clamped). Applies from the next move. */
 void     Scan_SetSpeed(uint16_t deg_per_s);
 uint16_t Scan_GetSpeed(void);
+
+/* Grid step for SCAN and GOTO, 1..SCAN_STEP_MAX_DEG (clamped).
+   Applies from the next move. */
+void     Scan_SetStep(uint8_t step_deg);
+uint8_t  Scan_GetStep(void);
 
 uint8_t  Scan_IsRunning(void);
 uint8_t  Scan_GetFrom(void);

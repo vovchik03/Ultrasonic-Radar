@@ -1,0 +1,32 @@
+[33m61d26b1[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Feature: ultrasonic dps control, servo step control on stm32. ToDo: WPF scroller step and dps control, range selection ux, normal good looking buttons
+[33m2166761[m Fix: make with CubeMX clock setup
+[33ma30d87d[m Quartz died, now we are using iternal HSI 64MHz
+[33m8766b21[m Tests on prototype, clean up code
+[33m53897cd[m  butons fix Start -> SCAN, GOTO
+[33meb23ac8[m hull test 2
+[33maaa9df3[m yesterday hull tests
+[33m507b256[m CAD ready for test. ToDo: WPF goto button, fron end can looks good, CAD cap cable testing before add to the project
+[33m358fd3d[m sch fix CAD work started
+[33m26e0e2a[m WPF max distance now 2000mm
+[33m9d2de32[m PCB: ready, 3.3v will be from blue pill connection to powerbank ToDo: WPF scale from 4m to 2m max range, step case
+[33m8f28fd1[m Done: pcb design ToDo: blue pill copypast quartz and clk dio Fix: servo pins gnd +5v swapped
+[33m0075651[m HOLD GOTO in to setup.md
+[33md9e8aa9[m HOLD n command
+[33m25937d5[m WPF app add GoTo
+[33md6977a3[m MCU add GoTo command
+[33m031741c[m WPF radar v1.1 real max distance 1800 - 2000 mm
+[33m76d6aed[m WPF radar v1
+[33m4f17cd1[m WPF Ugly app passed test
+[33m5e98240[m Add: WPF application to speak with radar and send cmds
+[33m4d740d2[m add: setup.md
+[33m8e338fa[m add: radar setup
+[33m1ee67cf[m add: usb files
+[33me7a14fb[m scan commands
+[33m10fc922[m all pins in main.h
+[33m8e71e74[m rebuild project on CubeIDE
+[33m9e12a94[m ultrasonic triver try 1
+[33m83e3138[m servo driver
+[33m75c34e2[m Done: VS code though CubeMX project created and simple diode blink test commit ToDo: system design, draft: servo driver, ultrasonic driver, uotput to spi display, and app conection through usb in the end
+[33m1167c68[m Delete ultrasonic A.3mf
+[33mf590dae[m gitignore update
+[33m53e60d2[m Initial commit

@@ -11,15 +11,20 @@ namespace Radar.Device
     /// The scanning logic mirrors scan.c.
     /// Runs on the UI thread, LineReceived is raised from a DispatcherTimer.
     /// </summary>
-    internal sealed class RadarSimulator
+    internal sealed class RadarSimulator : IRadarLink
     {
         private const int AngleMax = 180;       // SCAN_ANGLE_MAX
-        private const int StepDeg = 9;          // SCAN_STEP_DEG
-        private const int StepMs = 80;          // one 9° step takes 70..108 ms (scan.c)
+        private const int StepDefaultDeg = 9;   // SCAN_STEP_DEFAULT_DEG
+        private const int StepMax = 30;         // SCAN_STEP_MAX_DEG
+        private const int SpeedMax = 500;       // SCAN_SPEED_MAX_DPS
+        private const int PeriodMs = 70;        // ULTRASONIC_PERIOD_MS
+        private const int SettleBaseMs = 40;    // SCAN_SETTLE_BASE_MS
+        private const int SettlePerDegMs = 2;   // SCAN_SETTLE_PER_DEG_MS
+        private const int EchoMs = 6;           // echo from ~1 m
         private const int RangeMaxMm = 4000;    // HC-SR04: farther = no echo
         private const int NoiseMm = 15;
 
-        private readonly DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(StepMs) };
+        private readonly DispatcherTimer timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(PeriodMs) };
         private readonly Random random = new Random();
         private readonly ushort[] distances = new ushort[AngleMax + 1];
 
@@ -31,6 +36,8 @@ namespace Radar.Device
         private int target;
         private bool scanning;
         private bool stream;
+        private int speed;          // deg/s, 0 = no limit
+        private int step;           // grid step, deg
 
         public RadarSimulator()
         {
@@ -49,6 +56,8 @@ namespace Radar.Device
             to = AngleMax;
             gotoMode = false;
             scanning = false;
+            speed = 0;
+            step = StepDefaultDeg;
             Array.Clear(distances, 0, distances.Length);
             timer.Start();
         }
@@ -57,6 +66,11 @@ namespace Radar.Device
         public void Stop()
         {
             timer.Stop();
+        }
+
+        void IDisposable.Dispose()
+        {
+            Stop();
         }
 
         /// <summary>Takes one command line, the reply comes through LineReceived.</summary>
@@ -77,6 +91,18 @@ namespace Radar.Device
                     GoTo(args);
                     break;
 
+                case "SPEED":
+                    SetSpeed(args);
+                    break;
+
+                case "STEP":
+                    SetStep(args);
+                    break;
+
+                case "PING":
+                    Reply("OK PING");
+                    break;
+
                 case "STOP":
                     scanning = false;
                     Reply("OK STOP");
@@ -85,7 +111,7 @@ namespace Radar.Device
                 case "GET":
                     // Same grid as the scanner: from, from + STEP, ..., to
                     var data = new StringBuilder("DATA");
-                    for (int a = from; ; a = Math.Min(a + StepDeg, to))
+                    for (int a = from; ; a = Math.Min(a + step, to))
                     {
                         data.Append(' ').Append(a).Append(':').Append(distances[a]);
                         if (a >= to)
@@ -157,6 +183,46 @@ namespace Radar.Device
             Reply($"OK GOTO {a}");
         }
 
+        private void SetSpeed(string args)
+        {
+            string arg = args.Trim();
+            if (!IsNumber(arg))
+            {
+                Reply("ERR ARGS");
+                return;
+            }
+
+            int value = int.Parse(arg);
+            if (value > SpeedMax)
+            {
+                Reply("ERR RANGE");
+                return;
+            }
+
+            speed = value;
+            Reply($"OK SPEED {speed}");
+        }
+
+        private void SetStep(string args)
+        {
+            string arg = args.Trim();
+            if (!IsNumber(arg))
+            {
+                Reply("ERR ARGS");
+                return;
+            }
+
+            int value = int.Parse(arg);
+            if (value == 0 || value > StepMax)
+            {
+                Reply("ERR RANGE");
+                return;
+            }
+
+            step = value;
+            Reply($"OK STEP {step}");
+        }
+
         /// <summary>Up to 3 decimal digits, as Cmd_ParseNumber() takes.</summary>
         private static bool IsNumber(string s)
         {
@@ -197,7 +263,21 @@ namespace Radar.Device
             {
                 Reply($"P {angle} {distances[angle]}");
             }
-            angle = NextAngle();
+
+            int next = NextAngle();
+            timer.Interval = TimeSpan.FromMilliseconds(PointTimeMs(Math.Abs(next - angle)));
+            angle = next;
+        }
+
+        /// <summary>Time to the next point, scan.h: max(period, settle + echo).</summary>
+        private int PointTimeMs(int travelDeg)
+        {
+            int moveMs = SettlePerDegMs * travelDeg;
+            if (speed > 0)
+            {
+                moveMs = Math.Max(moveMs, 1000 * travelDeg / speed);
+            }
+            return Math.Max(PeriodMs, SettleBaseMs + moveMs + EchoMs);
         }
 
         /// <summary>Scan_NextAngle()</summary>
@@ -232,13 +312,13 @@ namespace Radar.Device
         /// <summary>Grid point above the angle, the last step is shortened to land on "to".</summary>
         private int GridUp(int a)
         {
-            return Math.Min(a + StepDeg, to);
+            return Math.Min(a + step, to);
         }
 
-        /// <summary>Grid point below the angle (from, from + STEP, ...), a > from.</summary>
+        /// <summary>Grid point below the angle (from, from + step, ...), a > from.</summary>
         private int GridDown(int a)
         {
-            return from + ((a - from - 1) / StepDeg) * StepDeg;
+            return from + ((a - from - 1) / step) * step;
         }
 
         /// <summary>The made-up room: a wall 2.8 m ahead with a door in it, a box and a post.</summary>

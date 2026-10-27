@@ -19,6 +19,8 @@
   *  With a speed limit (Scan_SetSpeed) MOVE also steps the servo degree by
   *  degree towards the next angle instead of commanding it at once.
   *
+  *  The grid step is set by Scan_SetStep (9 deg after power-up).
+  *
   *  The ultrasonic driver runs in single-shot mode, so a result always
   *  belongs to the ping requested at the current angle. Without a speed
   *  limit one 9 deg step takes 70..108 ms (servo settle + echo, at least
@@ -58,6 +60,7 @@ static uint32_t   scan_settle_ms;
 static uint8_t    scan_move_from;    /* servo angle when the move started */
 static uint32_t   scan_ramp_ms;      /* speed-limited move time, 0 = no limit */
 static uint16_t   scan_speed_dps;    /* 0 = no limit */
+static uint8_t    scan_step;         /* grid step, 1..SCAN_STEP_MAX_DEG */
 static uint16_t   scan_map[SCAN_ANGLE_MAX + 1U];
 
 static void Scan_MoveTo(uint8_t angle)
@@ -117,14 +120,14 @@ static void Scan_Ramp(void)
 /* Grid point above the angle, the last step is shortened to land on "to" */
 static uint8_t Scan_GridUp(uint8_t angle)
 {
-  uint16_t next = (uint16_t)angle + SCAN_STEP_DEG;
+  uint16_t next = (uint16_t)angle + scan_step;
   return (next > scan_to) ? scan_to : (uint8_t)next;
 }
 
-/* Grid point below the angle (from, from + STEP, ...), angle > from */
+/* Grid point below the angle (from, from + step, ...), angle > from */
 static uint8_t Scan_GridDown(uint8_t angle)
 {
-  return (uint8_t)(scan_from + ((angle - scan_from - 1U) / SCAN_STEP_DEG) * SCAN_STEP_DEG);
+  return (uint8_t)(scan_from + ((angle - scan_from - 1U) / scan_step) * scan_step);
 }
 
 static uint8_t Scan_NextAngle(void)
@@ -206,6 +209,7 @@ void Scan_Init(void)
   scan_last_angle = (uint8_t)Servo_GetAngle();
   scan_angle = scan_last_angle;
   scan_speed_dps = SCAN_SPEED_DEFAULT_DPS;
+  scan_step = SCAN_STEP_DEFAULT_DEG;
 
   /* Idle after power-up: the servo holds its angle, no pings
      until SCAN / GOTO / HOLD */
@@ -267,6 +271,20 @@ void Scan_SetSpeed(uint16_t deg_per_s)
 uint16_t Scan_GetSpeed(void)
 {
   return scan_speed_dps;
+}
+
+void Scan_SetStep(uint8_t step_deg)
+{
+  if (step_deg == 0U)
+  {
+    step_deg = 1U;
+  }
+  scan_step = (step_deg > SCAN_STEP_MAX_DEG) ? (uint8_t)SCAN_STEP_MAX_DEG : step_deg;
+}
+
+uint8_t Scan_GetStep(void)
+{
+  return scan_step;
 }
 
 uint8_t Scan_IsRunning(void)

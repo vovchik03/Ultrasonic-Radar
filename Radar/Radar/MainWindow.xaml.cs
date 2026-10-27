@@ -1,19 +1,12 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Threading;
 using Radar.Device;
 
 namespace Radar
@@ -23,50 +16,97 @@ namespace Radar
     /// </summary>
     public partial class MainWindow : Window
     {
-        // USART1 of the radar, 115200 8N1 (see setup.md)
-        private const int BaudRate = 115200;
+        // The slider sends SPEED only after it stopped moving for this long
+        private const int SpeedSendDelayMs = 300;
 
-        // SCAN_ANGLE_MAX in the firmware
-        private const int ScanAngleMax = 180;
+        private static readonly Brush LampOff = Frozen(Color.FromRgb(0xE2, 0x4B, 0x4A));
+        private static readonly Brush LampOn = Frozen(Color.FromRgb(0x6C, 0xCB, 0x5F));
 
-        private SerialPort port;
-        private readonly StringBuilder rxLine = new StringBuilder();
-        private readonly RadarSimulator simulator = new RadarSimulator();
+        private readonly RadarConnection connection = new RadarConnection();
+        private readonly DispatcherTimer speedTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(SpeedSendDelayMs) };
+        private bool showingSpeedReply;     // the slider is moved by OK SPEED, not by the user
+        private string connectedPort;       // port of the current serial link, null = none or demo
 
         public MainWindow()
         {
             InitializeComponent();
-            RefreshPorts();
-            simulator.LineReceived += ShowReply;
-            Closed += (s, e) =>
-            {
-                ClosePort();
-                simulator.Stop();
-            };
+
+            connection.ReplyReceived += ShowReply;
+            connection.AliveChanged += alive => UpdateLinkLamp();
+            speedTimer.Tick += SpeedTimer_Tick;
+            RadarScreen.AngleClicked += RadarScreen_AngleClicked;
+            RadarScreen.SectorSelected += RadarScreen_SectorSelected;
+            Closed += (s, e) => connection.Disconnect();
+
+            RefreshPorts();     // selects the first port, which connects to it
+            UpdateLinkLamp();
+        }
+
+        private static Brush Frozen(Color color)
+        {
+            var brush = new SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
         }
 
         private bool IsDemo => DemoBox.IsChecked == true;
 
+        // ---- Connection --------------------------------------------------------------------
+
+        /// <summary>Connects to the simulator or the selected port. Returns the error, or null.</summary>
+        private string Reconnect()
+        {
+            ResetRadarScreen();
+            connectedPort = null;
+
+            if (IsDemo)
+            {
+                return connection.Connect(() =>
+                {
+                    var simulator = new RadarSimulator();
+                    simulator.Start();
+                    return simulator;
+                });
+            }
+
+            string name = PortBox.SelectedItem as string;
+            if (name == null)
+            {
+                connection.Disconnect();
+                UpdateLinkLamp();
+                return "no COM port selected";
+            }
+            connectedPort = name;
+            return connection.Connect(() => new SerialRadarLink(name, Dispatcher));
+        }
+
+        private void UpdateLinkLamp()
+        {
+            bool alive = connection.IsAlive;
+            Brush brush = alive ? LampOn : LampOff;
+            LinkLamp.Fill = brush;
+            LinkGlow.Color = ((SolidColorBrush)brush).Color;
+            LinkText.Text = !alive ? "no link"
+                          : IsDemo ? "demo"
+                          : "connected " + PortBox.SelectedItem;
+        }
+
         private void DemoBox_Checked(object sender, RoutedEventArgs e)
         {
-            ClosePort();
-            ResetRadarScreen();
-            simulator.Start();
+            Reconnect();
             ShowStatus("demo: simulated radar, press Start", false);
         }
 
         private void DemoBox_Unchecked(object sender, RoutedEventArgs e)
         {
-            simulator.Stop();
-            ResetRadarScreen();
-            ShowStatus("", false);
+            ShowStatus(Reconnect() ?? "", false);
         }
 
         /// <summary>Back to what the firmware has after power-up: idle, sector 0..180, nothing measured.</summary>
         private void ResetRadarScreen()
         {
             RadarScreen.SectorFrom = 0;
-            RadarScreen.SectorTo = ScanAngleMax;
+            RadarScreen.SectorTo = RadarProtocol.AngleMax;
             RadarScreen.BeamAngle = double.NaN;
         }
 
@@ -94,68 +134,19 @@ namespace Radar
 
         private void PortBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            // Reopened with the new name on the next command
-            if (port != null && port.PortName != PortBox.SelectedItem as string)
-            {
-                ClosePort();
-            }
-        }
-
-        private bool OpenPort()
-        {
-            if (port != null && port.IsOpen)
-            {
-                return true;
-            }
-
+            // Choosing a port connects to it; refreshing the list keeps the same port selected
             string name = PortBox.SelectedItem as string;
-            if (name == null)
+            if (!IsDemo && name != null && name != connectedPort)
             {
-                ShowStatus("no COM port selected", true);
-                return false;
-            }
-
-            try
-            {
-                port = new SerialPort(name, BaudRate, Parity.None, 8, StopBits.One)
+                string error = Reconnect();
+                if (error != null)
                 {
-                    NewLine = "\r\n",
-                    WriteTimeout = 500
-                };
-                port.DataReceived += Port_DataReceived;
-                port.Open();
-                rxLine.Clear();
-                return true;
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException)
-            {
-                ShowStatus(ex.Message, true);
-                port = null;
-                return false;
+                    ShowStatus(error, true);
+                }
             }
         }
 
-        private void ClosePort()
-        {
-            if (port != null)
-            {
-                port.DataReceived -= Port_DataReceived;
-                port.Close();
-                port = null;
-            }
-        }
-
-        private void Send(string command)
-        {
-            if (IsDemo)
-            {
-                simulator.Send(command);
-            }
-            else
-            {
-                port.WriteLine(command);
-            }
-        }
+        // ---- Commands ----------------------------------------------------------------------
 
         private void AngleBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
         {
@@ -165,20 +156,20 @@ namespace Radar
 
         private static bool TryReadAngle(TextBox box, out int angle)
         {
-            return int.TryParse(box.Text, out angle) && angle >= 0 && angle <= ScanAngleMax;
+            return int.TryParse(box.Text, out angle) && angle >= 0 && angle <= RadarProtocol.AngleMax;
         }
 
         private void StartButton_Click(object sender, RoutedEventArgs e)
         {
             // The firmware accepts the angles in any order
             SendCommand(TryReadAngle(FromBox, out int from) && TryReadAngle(ToBox, out int to)
-                ? $"SCAN {from} {to}"
+                ? RadarProtocol.Scan(from, to)
                 : null);
         }
 
         private void GoToButton_Click(object sender, RoutedEventArgs e)
         {
-            SendCommand(TryReadAngle(GoToBox, out int target) ? $"GOTO {target}" : null);
+            SendCommand(TryReadAngle(GoToBox, out int target) ? RadarProtocol.GoTo(target) : null);
         }
 
         private void GoToBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -190,111 +181,145 @@ namespace Radar
             }
         }
 
-        /// <summary>Sends the command and turns streaming on. null = an angle is not 0..180.</summary>
+        // Click on the radar = GoTo that angle, drag = Start on that sector; the fields follow
+        private void RadarScreen_AngleClicked(int angle)
+        {
+            GoToBox.Text = angle.ToString();
+            SendCommand(RadarProtocol.GoTo(angle));
+        }
+
+        private void RadarScreen_SectorSelected(int from, int to)
+        {
+            FromBox.Text = from.ToString();
+            ToBox.Text = to.ToString();
+            SendCommand(RadarProtocol.Scan(from, to));
+        }
+
+        /// <summary>Sends the command with the slider speed and turns streaming on.
+        /// null = an angle is not 0..180.</summary>
         private void SendCommand(string command)
         {
             if (command == null)
             {
-                ShowStatus($"angles must be 0..{ScanAngleMax}", true);
+                ShowStatus($"angles must be 0..{RadarProtocol.AngleMax}", true);
                 return;
             }
 
-            if (!IsDemo && !OpenPort())
+            if (!connection.IsOpen)
             {
-                return;
+                string error = Reconnect();
+                if (error != null)
+                {
+                    ShowStatus(error, true);
+                    return;
+                }
             }
 
             ShowStatus("", false);
+            speedTimer.Stop();
 
             try
             {
-                Send(command);
-                Send("STREAM ON");   // then one "P <angle> <mm>" line per point
+                // The board may have been reset since the last SPEED/STEP, so they go with every command
+                SendSpeedAndStep();
+                connection.Send(command);
+                connection.Send(RadarProtocol.StreamOn);   // then one "P <angle> <mm>" line per point
             }
             catch (Exception ex) when (ex is IOException || ex is InvalidOperationException || ex is TimeoutException)
             {
                 ShowStatus(ex.Message, true);
-                ClosePort();
             }
         }
 
-        // Runs on a thread pool thread: collects bytes into lines, shows them on the UI thread
-        private void Port_DataReceived(object sender, SerialDataReceivedEventArgs e)
+        // ---- Servo speed -------------------------------------------------------------------
+
+        private int SliderSpeed => (int)Math.Round(SpeedSlider.Value);
+
+        // Grid step that goes with the speed: slower servo = denser grid.
+        // A separate step control can replace this rule later, everything else reads ScanStep.
+        private int ScanStep => RadarProtocol.StepForSpeed(SliderSpeed);
+
+        /// <summary>SPEED and the matching STEP, always together. Throws like RadarConnection.Send.</summary>
+        private void SendSpeedAndStep()
         {
-            string chunk;
+            connection.Send(RadarProtocol.SetSpeed(SliderSpeed));
+            connection.Send(RadarProtocol.SetStep(ScanStep));
+        }
+
+        private void SpeedSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (SpeedText == null)
+            {
+                return;     // still in InitializeComponent
+            }
+
+            SpeedText.Text = $"{SliderSpeed} °/s · step {ScanStep}°";
+
+            if (!showingSpeedReply)
+            {
+                // Restart the delay: one SPEED when the user stops dragging, not one per pixel
+                speedTimer.Stop();
+                speedTimer.Start();
+            }
+        }
+
+        private void SpeedTimer_Tick(object sender, EventArgs e)
+        {
+            speedTimer.Stop();
+            if (!connection.IsOpen)
+            {
+                return;     // sent with the next command
+            }
+
             try
             {
-                chunk = ((SerialPort)sender).ReadExisting();
+                SendSpeedAndStep();
             }
-            catch (Exception ex) when (ex is IOException || ex is InvalidOperationException)
+            catch (Exception ex) when (ex is IOException || ex is InvalidOperationException || ex is TimeoutException)
             {
-                return;
-            }
-
-            foreach (char c in chunk)
-            {
-                if (c == '\n')
-                {
-                    string line = rxLine.ToString();
-                    rxLine.Clear();
-                    // BeginInvoke, not Invoke: Invoke can deadlock with SerialPort.Close()
-                    Dispatcher.BeginInvoke(new Action(() => ShowReply(line)));
-                }
-                else if (c != '\r')
-                {
-                    rxLine.Append(c);
-                }
+                ShowStatus(ex.Message, true);
             }
         }
 
+        // ---- Replies -----------------------------------------------------------------------
+
         /// <summary>
-        /// Shows one reply line from the radar (format: cmd.h).
+        /// Shows one reply from the radar (format: cmd.h).
         /// Points go to the beam, every other line to the status text.
         /// </summary>
-        private void ShowReply(string line)
+        private void ShowReply(RadarReply reply)
         {
-            line = line.Trim();
-
-            // "P 45 523": the point just measured, 0 mm = no echo
-            if (line.StartsWith("P "))
+            switch (reply.Kind)
             {
-                string[] point = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (point.Length == 3
-                    && int.TryParse(point[1], out int angle) && angle >= 0 && angle <= ScanAngleMax
-                    && ushort.TryParse(point[2], out ushort mm))
-                {
-                    RadarScreen.BeamAngle = angle;
-                    RadarScreen.BeamDistanceMm = mm;
-                }
-                return;
+                case RadarReplyKind.Point:
+                    RadarScreen.BeamAngle = reply.Angle;
+                    RadarScreen.BeamDistanceMm = reply.DistanceMm;
+                    return;
+
+                case RadarReplyKind.Scan:
+                    // The sector as the firmware applied it (from <= to)
+                    RadarScreen.SectorFrom = reply.From;
+                    RadarScreen.SectorTo = reply.To;
+                    break;
+
+                case RadarReplyKind.GoTo:
+                    // The target is shown as a single edge line, the beam walks to it and stays
+                    RadarScreen.SectorFrom = reply.Angle;
+                    RadarScreen.SectorTo = reply.Angle;
+                    break;
+
+                case RadarReplyKind.Speed:
+                    // What the firmware applied, without sending it back
+                    if (!speedTimer.IsEnabled)
+                    {
+                        showingSpeedReply = true;
+                        SpeedSlider.Value = reply.Speed;
+                        showingSpeedReply = false;
+                    }
+                    break;
             }
 
-            ShowStatus(line, line.StartsWith("ERR"));
-
-            // "OK SCAN 40 70": the sector as the firmware applied it (from <= to)
-            if (line.StartsWith("OK SCAN "))
-            {
-                string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 4
-                    && int.TryParse(parts[2], out int from) && from >= 0 && from <= ScanAngleMax
-                    && int.TryParse(parts[3], out int to) && to >= 0 && to <= ScanAngleMax)
-                {
-                    RadarScreen.SectorFrom = from;
-                    RadarScreen.SectorTo = to;
-                }
-            }
-
-            // "OK GOTO 120": the target is shown as a single edge line, the beam walks to it and stays
-            if (line.StartsWith("OK GOTO "))
-            {
-                string[] parts = line.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length == 3
-                    && int.TryParse(parts[2], out int target) && target >= 0 && target <= ScanAngleMax)
-                {
-                    RadarScreen.SectorFrom = target;
-                    RadarScreen.SectorTo = target;
-                }
-            }
+            ShowStatus(reply.Line, reply.Kind == RadarReplyKind.Error);
         }
 
         private void ShowStatus(string text, bool isError)

@@ -216,15 +216,37 @@ static void Cmd_Speed(const char *args, Cmd_WriteFn write)
   Cmd_ReplyNumber("OK SPEED ", Scan_GetSpeed(), write);
 }
 
+static void Cmd_Step(const char *args, Cmd_WriteFn write)
+{
+  const char *p = Cmd_SkipSpaces(args);
+  uint16_t value;
+
+  if (!Cmd_ParseNumber(&p, &value) || (*Cmd_SkipSpaces(p) != '\0'))
+  {
+    write("ERR ARGS\r\n");
+    return;
+  }
+
+  if ((value == 0U) || (value > SCAN_STEP_MAX_DEG))
+  {
+    write("ERR RANGE\r\n");
+    return;
+  }
+
+  Scan_SetStep((uint8_t)value);
+  Cmd_ReplyNumber("OK STEP ", Scan_GetStep(), write);
+}
+
 static void Cmd_Get(Cmd_WriteFn write)
 {
   /* Sent point by point, so no big buffer is needed:
      a full 0..180 sector at 9 deg is ~200 bytes, ~17 ms at 115200 baud */
   write("DATA");
 
-  /* Same grid as the scanner: from, from + STEP, ..., to */
+  /* Same grid as the scanner: from, from + step, ..., to */
   uint8_t angle = Scan_GetFrom();
   uint8_t to = Scan_GetTo();
+  uint8_t step = Scan_GetStep();
   for (;;)
   {
     char  buf[12];
@@ -241,7 +263,7 @@ static void Cmd_Get(Cmd_WriteFn write)
     {
       break;
     }
-    angle = ((uint16_t)angle + SCAN_STEP_DEG > to) ? to : (uint8_t)(angle + SCAN_STEP_DEG);
+    angle = ((uint16_t)angle + step > to) ? to : (uint8_t)(angle + step);
   }
 
   write("\r\n");
@@ -315,6 +337,10 @@ void Cmd_Process(const char *line, Cmd_WriteFn write)
   else if ((args = Cmd_MatchWord(p, "SPEED")) != NULL)
   {
     Cmd_Speed(args, write);
+  }
+  else if ((args = Cmd_MatchWord(p, "STEP")) != NULL)
+  {
+    Cmd_Step(args, write);
   }
   else if ((args = Cmd_MatchWord(p, "STOP")) != NULL)
   {

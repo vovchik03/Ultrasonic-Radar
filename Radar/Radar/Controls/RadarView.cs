@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 
 namespace Radar.Controls
@@ -9,9 +10,13 @@ namespace Radar.Controls
     /// Radar screen: range rings and angle lines over the 0..180° half circle,
     /// the scanned sector and the beam to the last measured point.
     /// Resizes with its container, the sensor sits at the bottom center.
+    ///
+    /// Mouse: a click on the half circle raises AngleClicked, pressing and dragging
+    /// across it raises SectorSelected when the button is released.
     /// </summary>
     public class RadarView : FrameworkElement
     {
+        private const double ClickToleranceDeg = 3;    // a press moved less than this is a click, not a drag
         private const double Padding = 32;          // room for the labels around the half circle
         private const double LabelOffset = 16;      // angle labels: distance outside the outer ring
         private const int MinorAngleStep = 10;      // degrees
@@ -86,8 +91,22 @@ namespace Radar.Controls
             return angle >= 0 && angle <= 180;
         }
 
+        /// <summary>Click on the radar: the angle under the cursor, 0..180°.</summary>
+        public event Action<int> AngleClicked;
+
+        /// <summary>Drag across the radar: the swept sector, from &lt;= to.</summary>
+        public event Action<int, int> SectorSelected;
+
         // The grid changes only with the size, the range or the sector, so it is built once and reused
         private Drawing gridCache;
+
+        // Mouse state
+        private int? hoverAngle;        // angle under the cursor, null = cursor away from the radar
+        private Point hoverPoint;
+        private bool pressed;
+        private bool dragging;
+        private int dragStart;
+        private int dragCurrent;
 
         private static void OnGridChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -117,7 +136,129 @@ namespace Radar.Controls
             }
             dc.DrawDrawing(gridCache);
 
+            DrawSelection(dc, geometry);
             DrawBeam(dc, geometry);
+        }
+
+        /// <summary>The sector being dragged out, or the angle under the cursor.</summary>
+        private void DrawSelection(DrawingContext dc, RadarGeometry g)
+        {
+            if (dragging)
+            {
+                int from = Math.Min(dragStart, dragCurrent);
+                int to = Math.Max(dragStart, dragCurrent);
+                Geometry sector = Sector(g, from, to, g.Radius);
+                dc.DrawGeometry(RadarTheme.SelectionFill, RadarTheme.SelectionEdge, sector);
+                DrawLabel(dc, FormatAngle(from), g.PointOnRadius(from, g.Radius + LabelOffset), RadarTheme.SelectionLabel);
+                DrawLabel(dc, FormatAngle(to), g.PointOnRadius(to, g.Radius + LabelOffset), RadarTheme.SelectionLabel);
+            }
+            else if (hoverAngle != null)
+            {
+                dc.DrawLine(RadarTheme.Hover, g.Center, g.PointOnRadius(hoverAngle.Value, g.Radius));
+                DrawText(dc, FormatAngle(hoverAngle.Value), new Point(hoverPoint.X + 14, hoverPoint.Y - 18),
+                         RadarTheme.SelectionLabel, RadarTheme.LabelSize);
+            }
+        }
+
+        /// <summary>
+        /// Servo angle under the point, 0..180°. Points under the baseline map to 0° or 180°.
+        /// With onlyNear, a point away from the half circle gives null.
+        /// </summary>
+        private int? AngleAt(Point p, bool onlyNear)
+        {
+            var g = new RadarGeometry(RenderSize, Padding, MaxRangeMm);
+            if (g.Radius <= 0)
+            {
+                return null;
+            }
+
+            double dx = p.X - g.Center.X;
+            double dy = g.Center.Y - p.Y;
+            if (onlyNear && (Math.Sqrt(dx * dx + dy * dy) > g.Radius + LabelOffset || dy < -LabelOffset))
+            {
+                return null;
+            }
+
+            double deg = Math.Atan2(Math.Max(dy, 0), dx) * 180 / Math.PI;
+            return (int)Math.Round(Math.Min(Math.Max(deg, 0), 180));
+        }
+
+        protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
+        {
+            base.OnMouseLeftButtonDown(e);
+
+            int? angle = AngleAt(e.GetPosition(this), true);
+            if (angle == null)
+            {
+                return;
+            }
+
+            pressed = true;
+            dragging = false;
+            dragStart = dragCurrent = angle.Value;
+            CaptureMouse();
+            e.Handled = true;
+            InvalidateVisual();
+        }
+
+        protected override void OnMouseMove(MouseEventArgs e)
+        {
+            base.OnMouseMove(e);
+
+            hoverPoint = e.GetPosition(this);
+            hoverAngle = AngleAt(hoverPoint, true);
+
+            if (pressed)
+            {
+                // While dragging the cursor may leave the radar, the angle keeps following it
+                dragCurrent = AngleAt(hoverPoint, false) ?? dragCurrent;
+                if (Math.Abs(dragCurrent - dragStart) >= ClickToleranceDeg)
+                {
+                    dragging = true;
+                }
+            }
+
+            Cursor = (hoverAngle != null || pressed) ? Cursors.Cross : null;
+            InvalidateVisual();
+        }
+
+        protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
+        {
+            base.OnMouseLeftButtonUp(e);
+            if (!pressed)
+            {
+                return;
+            }
+
+            bool wasDragging = dragging;
+            int from = Math.Min(dragStart, dragCurrent);
+            int to = Math.Max(dragStart, dragCurrent);
+            ReleaseMouseCapture();      // resets the drag in OnLostMouseCapture
+            e.Handled = true;
+
+            if (wasDragging)
+            {
+                SectorSelected?.Invoke(from, to);
+            }
+            else
+            {
+                AngleClicked?.Invoke(dragStart);
+            }
+        }
+
+        protected override void OnLostMouseCapture(MouseEventArgs e)
+        {
+            base.OnLostMouseCapture(e);
+            pressed = false;
+            dragging = false;
+            InvalidateVisual();
+        }
+
+        protected override void OnMouseLeave(MouseEventArgs e)
+        {
+            base.OnMouseLeave(e);
+            hoverAngle = null;
+            InvalidateVisual();
         }
 
         private void DrawBeam(DrawingContext dc, RadarGeometry g)
@@ -146,12 +287,12 @@ namespace Radar.Controls
                 dc.DrawEllipse(RadarTheme.Beam.Brush, null, echo, 4, 4);
             }
 
-            // Readout in the top left corner, outside the half circle
+            // Readout in the top right corner, outside the half circle (top left is the link lamp)
             string reading = distance > 0
                 ? distance.ToString("0", CultureInfo.InvariantCulture) + " mm"
                 : "no echo";
-            DrawText(dc, FormatAngle(angle), new Point(12, 10), RadarTheme.BeamText, RadarTheme.ReadoutSize);
-            DrawText(dc, reading, new Point(12, 10 + RadarTheme.ReadoutSize * 1.4), RadarTheme.BeamText, RadarTheme.ReadoutSize);
+            DrawTextRight(dc, FormatAngle(angle), 10, RadarTheme.BeamText, RadarTheme.ReadoutSize);
+            DrawTextRight(dc, reading, 10 + RadarTheme.ReadoutSize * 1.4, RadarTheme.BeamText, RadarTheme.ReadoutSize);
         }
 
         private Drawing BuildGrid(RadarGeometry g)
@@ -249,6 +390,13 @@ namespace Radar.Controls
         private void DrawText(DrawingContext dc, string text, Point topLeft, Brush brush, double size)
         {
             dc.DrawText(Format(text, brush, size), topLeft);
+        }
+
+        /// <summary>Draws the text right-aligned 12 px from the right edge, top at y.</summary>
+        private void DrawTextRight(DrawingContext dc, string text, double y, Brush brush, double size)
+        {
+            FormattedText formatted = Format(text, brush, size);
+            dc.DrawText(formatted, new Point(RenderSize.Width - 12 - formatted.Width, y));
         }
 
         private FormattedText Format(string text, Brush brush, double size)

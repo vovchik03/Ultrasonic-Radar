@@ -33,6 +33,11 @@
   *                       (0: 1.4 s but the servo jerks), see scan.h
   *                       e.g. "SPEED 90"
   *                       -> OK SPEED 90
+  *    STEP <deg>         grid step for SCAN and GOTO, 1..30 deg, 9 after
+  *                       power-up; applies from the next step. Smaller =
+  *                       denser picture but more points per sweep
+  *                       e.g. "STEP 5"
+  *                       -> OK STEP 5
   *    STOP               stop sweeping, servo holds its angle
   *                       -> OK STOP
   *    GET                distances of the current sector, "angle:mm" pairs,
@@ -46,7 +51,7 @@
   *                       -> P 45 523
   *
   *  Errors: ERR UNKNOWN, ERR ARGS (bad format),
-  *          ERR RANGE (angle > 180, speed > 500)
+  *          ERR RANGE (angle > 180, speed > 500, step not 1..30)
   ******************************************************************************
   */
 #ifndef __CMD_H
