@@ -36,7 +36,20 @@ namespace Radar
             speedTimer.Tick += SpeedTimer_Tick;
             RadarScreen.AngleClicked += RadarScreen_AngleClicked;
             RadarScreen.SectorSelected += RadarScreen_SectorSelected;
-            Closed += (s, e) => connection.Disconnect();
+
+            // Range scale: the presets in the box, the last one used comes back from the settings
+            RangeBox.ItemsSource = Controls.RadarView.RangePresetsMm
+                .Select(mm => new { Mm = mm, Text = (mm / 1000).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + " m" })
+                .ToList();
+            RadarScreen.MaxRangeMm = Controls.RadarView.NearestRangePreset(Properties.Settings.Default.MaxRangeMm);
+
+            Closed += (s, e) =>
+            {
+                connection.Disconnect();
+                volumeKnob?.Dispose();
+                Properties.Settings.Default.MaxRangeMm = RadarScreen.MaxRangeMm;
+                Properties.Settings.Default.Save();
+            };
 
             RefreshPorts();     // selects the first port, which connects to it
             UpdateLinkLamp();
@@ -50,6 +63,34 @@ namespace Radar
         }
 
         private bool IsDemo => DemoBox.IsChecked == true;
+
+        // The volume knob changes the radar range while the window is active: up = farther,
+        // down = closer. VolumeKnob takes the keys before Windows does, so the system volume
+        // stays as it is; without it (hook refused) they still arrive here, but change the volume too.
+        private VolumeKnob volumeKnob;
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            try
+            {
+                volumeKnob = new VolumeKnob(this);
+                volumeKnob.Turned += direction => RadarScreen.ChangeRange(direction);
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                volumeKnob = null;
+            }
+        }
+
+        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.VolumeUp || e.Key == Key.VolumeDown)
+            {
+                RadarScreen.ChangeRange(e.Key == Key.VolumeUp ? 1 : -1);
+                e.Handled = true;
+            }
+        }
 
         // ---- Connection --------------------------------------------------------------------
 

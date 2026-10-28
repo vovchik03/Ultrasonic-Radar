@@ -12,17 +12,24 @@ namespace Radar.Controls
     /// Resizes with its container, the sensor sits at the bottom center.
     ///
     /// Mouse: a click on the half circle raises AngleClicked, pressing and dragging
-    /// across it raises SectorSelected when the button is released.
+    /// across it raises SectorSelected when the button is released, the wheel changes
+    /// the range scale (MaxRangeMm) through RangePresetsMm.
     /// </summary>
     public class RadarView : FrameworkElement
     {
         private const double ClickToleranceDeg = 3;    // a press moved less than this is a click, not a drag
+        private const int WheelNotch = 120;            // Mouse.MouseWheelDeltaForOneLine
+
+        /// <summary>Range scales the wheel and ChangeRange step through, in mm.</summary>
+        public static readonly double[] RangePresetsMm = { 500, 1000, 1500, 2000, 3000, 4000 };
+
+        // Labeled ring step: the first one that gives at most MaxRings rings
+        private static readonly double[] RingStepsMm = { 100, 250, 500, 1000, 2000 };
+        private const int MaxRings = 6;
         private const double Padding = 32;          // room for the labels around the half circle
         private const double LabelOffset = 16;      // angle labels: distance outside the outer ring
         private const int MinorAngleStep = 10;      // degrees
         private const int MajorAngleStep = 30;
-        private const int MinorRingStepMm = 500;
-        private const int MajorRingStepMm = 1000;
         private const double LabelGapDeg = 10;      // grid angle labels closer than this to a sector edge are hidden
 
         public static readonly DependencyProperty MaxRangeMmProperty =
@@ -107,6 +114,56 @@ namespace Radar.Controls
         private bool dragging;
         private int dragStart;
         private int dragCurrent;
+        private int wheelDelta;         // touchpads send parts of a notch, they add up here
+
+        /// <summary>Next range preset: direction > 0 = farther (zoom out), &lt; 0 = closer (zoom in).
+        /// Stays at the first / last preset.</summary>
+        public void ChangeRange(int direction)
+        {
+            int index = Array.IndexOf(RangePresetsMm, NearestRangePreset(MaxRangeMm));
+            index = Math.Max(0, Math.Min(RangePresetsMm.Length - 1, index + Math.Sign(direction)));
+            MaxRangeMm = RangePresetsMm[index];
+        }
+
+        /// <summary>The preset closest to the distance, e.g. for a range loaded from the settings.</summary>
+        public static double NearestRangePreset(double mm)
+        {
+            double best = RangePresetsMm[0];
+            foreach (double preset in RangePresetsMm)
+            {
+                if (Math.Abs(preset - mm) < Math.Abs(best - mm))
+                {
+                    best = preset;
+                }
+            }
+            return best;
+        }
+
+        private static double RingStepFor(double rangeMm)
+        {
+            foreach (double step in RingStepsMm)
+            {
+                if (rangeMm / step <= MaxRings)
+                {
+                    return step;
+                }
+            }
+            return RingStepsMm[RingStepsMm.Length - 1];
+        }
+
+        // Wheel forward = zoom in (closer range), as on maps
+        protected override void OnMouseWheel(MouseWheelEventArgs e)
+        {
+            base.OnMouseWheel(e);
+
+            wheelDelta += e.Delta;
+            while (Math.Abs(wheelDelta) >= WheelNotch)
+            {
+                ChangeRange(wheelDelta > 0 ? -1 : 1);
+                wheelDelta -= Math.Sign(wheelDelta) * WheelNotch;
+            }
+            e.Handled = true;
+        }
 
         private static void OnGridChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
@@ -277,6 +334,14 @@ namespace Radar.Controls
                 // No echo: only the direction, up to the edge of the view
                 dc.DrawLine(RadarTheme.BeamDirection, g.Center, edge);
             }
+            else if (distance > MaxRangeMm)
+            {
+                // Echo beyond the scale: red up to the edge and a hollow dot there,
+                // so it does not read as an object at the edge; the readout has the real distance
+                dc.DrawLine(RadarTheme.BeamGlow, g.Center, edge);
+                dc.DrawLine(RadarTheme.Beam, g.Center, edge);
+                dc.DrawEllipse(RadarTheme.Background, RadarTheme.Beam, edge, 4, 4);
+            }
             else
             {
                 // Red up to the echo, the direction continues dimmed behind it
@@ -306,15 +371,19 @@ namespace Radar.Controls
                 dc.DrawGeometry(RadarTheme.Screen, null, Sector(g, 0, 180, g.Radius));
                 dc.DrawGeometry(RadarTheme.SectorFill, null, Sector(g, sectorFrom, sectorTo, g.Radius));
 
-                // Range rings, labeled every meter under the baseline
-                for (int mm = MinorRingStepMm; mm < MaxRangeMm; mm += MinorRingStepMm)
+                // Range rings: labeled ones under the baseline, a dimmer one halfway between them.
+                // The step follows the scale, so there are 3..6 labeled rings at any range.
+                // Only the outer label has the unit, six "x.xx m" labels do not fit side by side.
+                double ringStep = RingStepFor(MaxRangeMm);
+                for (int i = 1; i * ringStep / 2 < MaxRangeMm - 1; i++)
                 {
-                    bool major = mm % MajorRingStepMm == 0;
+                    double mm = i * ringStep / 2;
+                    bool major = i % 2 == 0;
                     double r = g.ToRadius(mm);
                     dc.DrawGeometry(null, major ? RadarTheme.MajorGrid : RadarTheme.MinorGrid, Arc(g, 0, 180, r));
                     if (major)
                     {
-                        DrawLabel(dc, (mm / 1000) + " m", new Point(g.Center.X + r, g.Center.Y + 10));
+                        DrawLabel(dc, FormatMeters(mm, false), new Point(g.Center.X + r, g.Center.Y + 10));
                     }
                 }
                 DrawLabel(dc, FormatMeters(MaxRangeMm), new Point(g.Center.X + g.Radius, g.Center.Y + 10));
@@ -411,9 +480,10 @@ namespace Radar.Controls
             return angle.ToString("0.#", CultureInfo.InvariantCulture) + "°";
         }
 
-        private static string FormatMeters(double mm)
+        private static string FormatMeters(double mm, bool withUnit = true)
         {
-            return (mm / 1000).ToString("0.#", CultureInfo.InvariantCulture) + " m";
+            string meters = (mm / 1000).ToString("0.##", CultureInfo.InvariantCulture);
+            return withUnit ? meters + " m" : meters;
         }
     }
 }

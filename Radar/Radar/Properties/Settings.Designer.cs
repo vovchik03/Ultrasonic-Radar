@@ -26,5 +26,20 @@ namespace Radar.Properties
                 return defaultInstance;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("2000")]
+        public double MaxRangeMm
+        {
+            get
+            {
+                return ((double)(this["MaxRangeMm"]));
+            }
+            set
+            {
+                this["MaxRangeMm"] = value;
+            }
+        }
     }
 }

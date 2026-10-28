@@ -67,6 +67,7 @@
     <Compile Include="Device\RadarProtocol.cs" />
     <Compile Include="Device\RadarSimulator.cs" />
     <Compile Include="Device\SerialRadarLink.cs" />
+    <Compile Include="VolumeKnob.cs" />
     <Compile Include="App.xaml.cs">
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
