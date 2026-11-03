@@ -42,7 +42,8 @@
   *                       -> OK STOP
   *    GET                distances of the current sector, "angle:mm" pairs,
   *                       0 = no echo / not measured yet
-  *                       -> DATA 40:523 41:518 42:0 ... 70:1210
+  *                       on the STEP grid, e.g. after "SCAN 40 70", step 9:
+  *                       -> DATA 40:523 49:518 58:0 67:1180 70:1210
   *    STREAM ON|OFF      send every new point as soon as it is measured
   *                       (off after power-up)
   *                       -> OK STREAM ON
