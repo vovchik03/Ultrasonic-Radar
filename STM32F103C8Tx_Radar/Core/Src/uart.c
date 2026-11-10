@@ -32,13 +32,13 @@ void Uart_Init(uint32_t baud)
   __HAL_RCC_GPIOA_CLK_ENABLE();   /* UART_TX_GPIO_Port, UART_RX_GPIO_Port */
   __HAL_RCC_USART1_CLK_ENABLE();
 
-  /* PA9 -> USART1_TX, alternate function push-pull */
+ 
   GPIO_InitStruct.Pin = UART_TX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(UART_TX_GPIO_Port, &GPIO_InitStruct);
 
-  /* PA10 -> USART1_RX, input with pull-up (UART line idles high) */
+
   GPIO_InitStruct.Pin = UART_RX_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
